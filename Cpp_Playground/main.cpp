@@ -19,11 +19,46 @@ int main()
 {
 	for (;;)
 	{
-		static uint64_t prevPrintTime = 0;
-		while (!timerMillis(&prevPrintTime, 1000, true, 0, false))
+		//const bds_inDig_signal_te LED1 = bds_inDig_K43_E;//K39;
+		static bool enableLED1 = false;
+		static bool toggleLED1 = false;
+		static uint64_t prevSwitchLED1 = 0;
+		uint64_t switchLED1Timeout = 5000;
+		if (timerMillis(&prevSwitchLED1, switchLED1Timeout, true, 0, false))
 		{
+			toggleLED1 = true;
+			enableLED1 = !enableLED1;
+			// enableLED1 = TRUE;
 		}
-		printf("Hello, World!\n");
+		//bds_inCmn_pullParam_ts pullParam_s;
+		//bds_inDig_cfgPull_ts cfgPullRtn_s;
+		//pullParam_s.iPull_e = bds_inCmn_iPull_10mA_E;//bds_inCmn_iPull_1mA_E;
+		if (toggleLED1)
+		{
+			if (enableLED1)
+			{
+				// pullParam_s.pullType_e = bds_inCmn_pullDown_E;
+				//pullParam_s.pullType_e = bds_inCmn_pull5V_E;//bds_inCmn_pullDown_E;
+				//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
+				//while (bds_inCmn_notAvl_E == cfgPullRtn_s.status_e)  //  TODO - RM: FROM CODE DOCS, WE SHOULD ADD A TIMER ON THIS TO PREVENT INFINITE LOOP
+				{
+					printf("LED ON!\n");
+					//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
+				}
+				// enableLED1 = FALSE;
+			}
+			else
+			{
+				//pullParam_s.pullType_e = bds_inCmn_pullDown_E;
+				//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
+				//while (bds_inCmn_notAvl_E == cfgPullRtn_s.status_e)
+				{
+					printf("LED OFF!\n");
+					//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
+				}
+			}
+			toggleLED1 = false;
+		}
 	}
 	return 0;
 }
