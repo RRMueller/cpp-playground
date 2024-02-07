@@ -37,10 +37,10 @@ int main()
 	for (;;)
 	{
 		static uint32_t input = 0;
-		uint32_t output = scale(input, 0, 5000, 50, 1000, true);
-		input += 100;
+		uint32_t output = scale(input, 1000, 5000, 0, 1000, true);
 		printf("input: %d\toutput: %d\n", input, output);
-		if (input > 5000)
+		input += 100;
+		if (input > 6000)
 			break;
 	}
 	return 0;
