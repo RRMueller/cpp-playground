@@ -13,52 +13,35 @@ uint64_t micros();
 uint64_t nanos();
 bool timerMillis(uint64_t* prevTime, uint64_t timeout, bool resetPrevTime, uint64_t current_time, bool useFakeMillis);
 
+double scale(double input, double minIn, double maxIn, double minOut, double maxOut, bool clipOutput)
+{
+	double slope = ((maxOut - minOut) / (maxIn - minIn));
+	double intercept = (minOut - (minIn * slope));
+	double output = ((slope * input) + intercept);
+	if (clipOutput) //  DON'T ALLOW OUTPUT OUTSIDE RANGE
+	{
+		double minVal = (minOut < maxOut) ? minOut : maxOut;	//	FIND MIN/MAX VALUES - INCASE WE ARE INVERSELY SCALING
+		double maxVal = (minOut > maxOut) ? minOut : maxOut;
+		if (output > maxVal)
+			output = maxVal;
+		if (output < minVal)
+			output = minVal;
+	}
+	return output;
+}
+
 auto startTime = std::chrono::steady_clock::now(); //steady clock is great for timers, not great for epoch
 
 int main()
 {
 	for (;;)
 	{
-		//const bds_inDig_signal_te LED1 = bds_inDig_K43_E;//K39;
-		static bool enableLED1 = false;
-		static bool toggleLED1 = false;
-		static uint64_t prevSwitchLED1 = 0;
-		uint64_t switchLED1Timeout = 5000;
-		if (timerMillis(&prevSwitchLED1, switchLED1Timeout, true, 0, false))
-		{
-			toggleLED1 = true;
-			enableLED1 = !enableLED1;
-			// enableLED1 = TRUE;
-		}
-		//bds_inCmn_pullParam_ts pullParam_s;
-		//bds_inDig_cfgPull_ts cfgPullRtn_s;
-		//pullParam_s.iPull_e = bds_inCmn_iPull_10mA_E;//bds_inCmn_iPull_1mA_E;
-		if (toggleLED1)
-		{
-			if (enableLED1)
-			{
-				// pullParam_s.pullType_e = bds_inCmn_pullDown_E;
-				//pullParam_s.pullType_e = bds_inCmn_pull5V_E;//bds_inCmn_pullDown_E;
-				//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
-				//while (bds_inCmn_notAvl_E == cfgPullRtn_s.status_e)  //  TODO - RM: FROM CODE DOCS, WE SHOULD ADD A TIMER ON THIS TO PREVENT INFINITE LOOP
-				{
-					printf("LED ON!\n");
-					//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
-				}
-				// enableLED1 = FALSE;
-			}
-			else
-			{
-				//pullParam_s.pullType_e = bds_inCmn_pullDown_E;
-				//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
-				//while (bds_inCmn_notAvl_E == cfgPullRtn_s.status_e)
-				{
-					printf("LED OFF!\n");
-					//cfgPullRtn_s = bds_inDig_cfgPull(LED1, pullParam_s);
-				}
-			}
-			toggleLED1 = false;
-		}
+		static uint32_t input = 0;
+		uint32_t output = scale(input, 0, 5000, 50, 1000, true);
+		input += 100;
+		printf("input: %d\toutput: %d\n", input, output);
+		if (input > 5000)
+			break;
 	}
 	return 0;
 }
