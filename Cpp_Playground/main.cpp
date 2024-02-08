@@ -28,23 +28,40 @@ int main()
 	for (;;)
 	{
 		static uint64_t prevPrintTime = 0;
-		uint64_t printTimeout = 1000;
+		uint64_t printTimeout = 4000;
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
 			int8_t rndNumArr[8] = { 0 };
 			bool trigger = true;
-			int64_t randomNumber = 0;
-			int i = 0;
-			for (i; i < 8/*RND_SIZE_DU16*/; i++)
+			//int64_t randomNumber = 0;
+			int8_t randomNumber[8];
+			int64_t tempRandomNumber;
+			//int i = 0;
+			for (int i = 0; i < 8/*RND_SIZE_DU16*/; i++)
 			{
-				rndNumArr[i] = (int8_t)random();
+				rndNumArr[i] = (int8_t)random(0xFF);
 				//uint64_t temp = 0;
-				uint64_t temp = ((uint64_t)rndNumArr[i] << (8 * i)) & ((uint64_t)0xFF << (8 * i));
-				randomNumber = randomNumber | temp;
+				//uint64_t temp = ((uint64_t)rndNumArr[i] << (8 * i)) & ((uint64_t)0xFF << (8 * i));
+				//randomNumber = randomNumber | temp;
 				//printf("bitshift: %d\n", 8 * i);
 			}
+			printf("array random Number: ");
+			//int i = 0;
+			for (int i = 0; i < 8; i++)
+			{
+				tempRandomNumber |= ((rndNumArr[i]) & (uint64_t)0xFF) << (8 * i);
+				printf("%d ", rndNumArr[i]);
+			}
+			printf("\n");
 			//random(&trigger, &randomNumber);
-			printf("random Number: %lld\n", randomNumber);
+			printf("Single random Number: ");
+			for (int i = 0; i < 8; i++)
+			{
+				printf("%d ", (int8_t)((tempRandomNumber >> (8 * i)) & 0xFF));
+			}
+			printf("\n");
+			tempRandomNumber = 0;
+			//printf("single random Number: %lld\n", tempRandomNumber);
 		}
 	}
 	return 0;
