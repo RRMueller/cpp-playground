@@ -20,6 +20,19 @@ int64_t random(int64_t max);
 int64_t random(int64_t min, int64_t max);
 bool random(bool* trigger, int64_t* output, bool noWait);
 
+bool testRandom(bool noWait, uint8_t * count)
+{
+	bool success = false;
+	do
+	{
+		*count += 1;
+		if (random(5) == 5)
+		{
+			success = true;
+		}
+	} while (noWait && !success);
+	return success;
+}
 
 auto startTime = std::chrono::steady_clock::now(); //steady clock is great for timers, not great for epoch
 
@@ -28,44 +41,47 @@ int main()
 	for (;;)
 	{
 		static uint64_t prevPrintTime = 0;
-		uint64_t printTimeout = 4000;
+		uint64_t printTimeout = 100;
+		uint8_t count = 0;
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
-			int8_t rndNumArr[8] = { 0 };
-			bool trigger = true;
-			//int64_t randomNumber = 0;
-			int8_t randomNumber[8];
-			int64_t tempRandomNumber;
-			//int i = 0;
-			for (int i = 0; i < 8/*RND_SIZE_DU16*/; i++)
-			{
-				rndNumArr[i] = (int8_t)random(0xFF);
-				//uint64_t temp = 0;
-				//uint64_t temp = ((uint64_t)rndNumArr[i] << (8 * i)) & ((uint64_t)0xFF << (8 * i));
-				//randomNumber = randomNumber | temp;
-				//printf("bitshift: %d\n", 8 * i);
-			}
-			printf("array random Number: ");
-			//int i = 0;
-			for (int i = 0; i < 8; i++)
-			{
-				tempRandomNumber |= ((rndNumArr[i]) & (uint64_t)0xFF) << (8 * i);
-				printf("%d ", rndNumArr[i]);
-			}
-			printf("\n");
-			//random(&trigger, &randomNumber);
-			printf("Single random Number: ");
-			for (int i = 0; i < 8; i++)
-			{
-				printf("%d ", (int8_t)((tempRandomNumber >> (8 * i)) & 0xFF));
-			}
-			printf("\n");
-			tempRandomNumber = 0;
+			printf("random Number: %lld\n", random(-10));
+			//int8_t rndNumArr[8] = { 0 };
+			//bool trigger = true;
+			////int64_t randomNumber = 0;
+			//int8_t randomNumber[8];
+			//int64_t tempRandomNumber;
+			////int i = 0;
+			//for (int i = 0; i < 8/*RND_SIZE_DU16*/; i++)
+			//{
+			//	rndNumArr[i] = (int8_t)random(0xFF);
+			//	//uint64_t temp = 0;
+			//	//uint64_t temp = ((uint64_t)rndNumArr[i] << (8 * i)) & ((uint64_t)0xFF << (8 * i));
+			//	//randomNumber = randomNumber | temp;
+			//	//printf("bitshift: %d\n", 8 * i);
+			//}
+			//printf("array random Number: ");
+			////int i = 0;
+			//for (int i = 0; i < 8; i++)
+			//{
+			//	tempRandomNumber |= ((rndNumArr[i]) & (uint64_t)0xFF) << (8 * i);
+			//	printf("%d ", rndNumArr[i]);
+			//}
+			//printf("\n");
+			////random(&trigger, &randomNumber);
+			//printf("Single random Number: ");
+			//for (int i = 0; i < 8; i++)
+			//{
+			//	printf("%d ", (int8_t)((tempRandomNumber >> (8 * i)) & 0xFF));
+			//}
+			//printf("\n");
+			//tempRandomNumber = 0;
 			//printf("single random Number: %lld\n", tempRandomNumber);
 		}
 	}
 	return 0;
 }
+
 
 /**
  * @brief Generates a 64-bit random number between `0` and `0x7FFFFFFFFFFFFFFF`. This is
@@ -95,7 +111,7 @@ int64_t random(int64_t max)
 	{
 		return 0;
 	}
-	if (random(&trigger, &output, false))
+	if (random(&trigger, &output, true))
 	{
 		if (max == -1)	//	Edge conditions...
 		{// Do nothing
