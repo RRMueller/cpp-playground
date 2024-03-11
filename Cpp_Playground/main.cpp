@@ -23,18 +23,25 @@ bool testRandom(bool noWait, uint8_t* count);
 
 auto startTime = std::chrono::steady_clock::now(); //steady clock is great for timers, not great for epoch
 
-int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* output, int byte, int bit, int length)
+typedef struct
 {
-	if ((8 * byte + bit + length) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
+	uint8_t byte;
+	uint8_t bit;
+	uint8_t len;
+} SPN_Config;
+
+int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* output, SPN_Config spnConfig)
+{
+	if ((8 * spnConfig.byte + spnConfig.bit + spnConfig.len) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
 		return -1;	// Return -1 if we overrun the array?
 
 	int mask = 0;
 	int i = 0;
-	for (i; i < length; i++)
+	for (i; i < spnConfig.len; i++)
 	{
 		mask |= (1 << i);
 	}
-	int val = (telegram[byte] >> bit) & mask;
+	int val = (telegram[spnConfig.byte] >> spnConfig.bit) & mask;
 	if (val)
 		*output = true;
 	else
@@ -42,25 +49,25 @@ int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* out
 	return 0;
 }
 
-int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* output, int byte, int bit, int length)
+int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* output, SPN_Config spnConfig)
 {
-	if ((8 * byte + bit + length) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
+	if ((8 * spnConfig.byte + spnConfig.bit + spnConfig.len) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
 		return -1;	// Return -1 if we overrun the array?
 
 	int mask = 0;
 	int i = 0;
-	for (i; i < length; i++)
+	for (i; i < spnConfig.len; i++)
 	{
 		mask |= (1 << i);
 	}
 	int val = 0;
-	uint8_t numBytes = 1 + (bit + length) / 8;
+	uint8_t numBytes = 1 + (spnConfig.bit + spnConfig.len) / 8;
 	i = 0;
 	for (i; i < numBytes; i++)
 	{
-		val |= telegram[byte + i] << (8 * i);
+		val |= telegram[spnConfig.byte + i] << (8 * i);
 	}
-	*output = (val >> bit) & mask;
+	*output = (val >> spnConfig.bit) & mask;
 	return 0;
 }
 
@@ -78,18 +85,19 @@ int main()
 		uint8_t sizeOfTelegram = 8;
 		static uint8_t telegram[] = { 0b00000001,0b00000100,0b00010000,0b01000000,5,6,7,8};
 		bool trueFalse = false;
+		SPN_Config testSPN = { 2, 4, 11 };
 		int output = 0;
-		int byte = 2;
-		int bit = 4;
-		int length = 11;
+		//int byte = 2;
+		//int bit = 4;
+		//int length = 11;
 
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
 			//getBoolFromCanTelegram(telegram, sizeOfTelegram, &trueFalse, byte, bit, length);
-			getIntFromCanTelegram(telegram, sizeOfTelegram, &output, byte, bit, length);
+			getIntFromCanTelegram(telegram, sizeOfTelegram, &output, testSPN);
 			//printf("trueFalse: %s\n", trueFalse ? "true" : "False");
 			printf("output: %d\n", output);
-			if (telegram[byte] == 0)
+			if (telegram[testSPN.byte] == 0)
 			{
 				//telegram[byte] = 1;
 			}
