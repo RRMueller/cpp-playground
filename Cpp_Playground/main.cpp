@@ -19,22 +19,50 @@ int64_t random(void);
 int64_t random(int64_t max);
 int64_t random(int64_t min, int64_t max);
 bool random(bool* trigger, int64_t* output, bool noWait);
-
-bool testRandom(bool noWait, uint8_t * count)
-{
-	bool success = false;
-	do
-	{
-		*count += 1;
-		if (random(5) == 5)
-		{
-			success = true;
-		}
-	} while (noWait && !success);
-	return success;
-}
+bool testRandom(bool noWait, uint8_t* count);
 
 auto startTime = std::chrono::steady_clock::now(); //steady clock is great for timers, not great for epoch
+
+int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* output, int byte, int bit, int length)
+{
+	if ((8 * byte + bit + length) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
+		return -1;	// Return -1 if we overrun the array?
+
+	int mask = 0;
+	int i = 0;
+	for (i; i < length; i++)
+	{
+		mask |= (1 << i);
+	}
+	int val = (telegram[byte] >> bit) & mask;
+	if (val)
+		*output = true;
+	else
+		*output = false;
+	return 0;
+}
+
+int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* output, int byte, int bit, int length)
+{
+	if ((8 * byte + bit + length) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
+		return -1;	// Return -1 if we overrun the array?
+
+	int mask = 0;
+	int i = 0;
+	for (i; i < length; i++)
+	{
+		mask |= (1 << i);
+	}
+	int val = 0;
+	uint8_t numBytes = 1 + (bit + length) / 8;
+	i = 0;
+	for (i; i < numBytes; i++)
+	{
+		val |= telegram[byte + i] << (8 * i);
+	}
+	*output = (val >> bit) & mask;
+	return 0;
+}
 
 int main()
 {
@@ -46,12 +74,47 @@ int main()
 
 		int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
 		int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
+
+		uint8_t sizeOfTelegram = 8;
+		static uint8_t telegram[] = { 0b00000001,0b00000100,0b00010000,0b01000000,5,6,7,8};
+		bool trueFalse = false;
+		int output = 0;
+		int byte = 2;
+		int bit = 4;
+		int length = 11;
+
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
-			printf("canDiagTxID_1: %X\n", canDiagTxID_1);
+			//getBoolFromCanTelegram(telegram, sizeOfTelegram, &trueFalse, byte, bit, length);
+			getIntFromCanTelegram(telegram, sizeOfTelegram, &output, byte, bit, length);
+			//printf("trueFalse: %s\n", trueFalse ? "true" : "False");
+			printf("output: %d\n", output);
+			if (telegram[byte] == 0)
+			{
+				//telegram[byte] = 1;
+			}
+			else
+			{
+				//telegram[byte] = 0;
+			}
 		}
 	}
 	return 0;
+}
+
+
+bool testRandom(bool noWait, uint8_t* count)
+{
+	bool success = false;
+	do
+	{
+		*count += 1;
+		if (random(5) == 5)
+		{
+			success = true;
+		}
+	} while (noWait && !success);
+	return success;
 }
 
 
