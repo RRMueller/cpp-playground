@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <random>
 
+typedef struct
+{
+	uint8_t byte;
+	uint8_t bit;
+	uint8_t len;
+} SPN_Config;
+
 long long epoch();
 long long epochMillis();
 uint64_t hours();
@@ -20,15 +27,122 @@ int64_t random(int64_t max);
 int64_t random(int64_t min, int64_t max);
 bool random(bool* trigger, int64_t* output, bool noWait);
 bool testRandom(bool noWait, uint8_t* count);
+int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* output, SPN_Config spnConfig);
+int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* output, SPN_Config spnConfig);
 
 auto startTime = std::chrono::steady_clock::now(); //steady clock is great for timers, not great for epoch
 
-typedef struct
+
+
+
+int main()
 {
-	uint8_t byte;
-	uint8_t bit;
-	uint8_t len;
-} SPN_Config;
+	for (;;)
+	{
+		static uint64_t prevPrintTime = 0;
+		uint64_t printTimeout = 2000;
+		uint8_t count = 0;
+
+		int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
+		int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
+
+		//uint8_t sizeOfTelegram = 8;
+		//static uint8_t telegram[] = { 0b00000001,0b00000100,0b00010000,0b01000000,5,6,7,8};
+		//bool trueFalse = false;
+		//SPN_Config testSPN = { 2, 4, 11 };
+		//int output = 0;
+		//int byte = 2;
+		//int bit = 4;
+		//int length = 11;
+		char escape = 1;
+		char hold = 1;
+
+		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
+		{
+			//getBoolFromCanTelegram(telegram, sizeOfTelegram, &trueFalse, byte, bit, length);
+			//getIntFromCanTelegram(telegram, sizeOfTelegram, &output, testSPN);
+			//printf("trueFalse: %s\n", trueFalse ? "true" : "False");
+
+			escape = 0;
+			hold = 0;
+			printf("escape: %d\n", escape);
+			printf("!escape: %d\n", !escape);
+			printf("hold: %d\n", hold);
+			printf("!hold: %d\n", !hold);
+			printf("escape & hold: %d\n", escape & hold);
+			printf("escape & !hold: %d\n", escape & !hold);
+			printf("escape && hold: %d\n", escape && hold);
+			printf("escape && !hold: %d\n", escape && !hold);
+			printf("~~~~~~~~~~~\n");
+			escape = 0;
+			hold = 1;
+			printf("escape: %d\n", escape);
+			printf("!escape: %d\n", !escape);
+			printf("hold: %d\n", hold);
+			printf("!hold: %d\n", !hold);
+			printf("escape & hold: %d\n", escape & hold);
+			printf("escape & !hold: %d\n", escape & !hold);
+			printf("escape && hold: %d\n", escape && hold);
+			printf("escape && !hold: %d\n", escape && !hold);
+			printf("~~~~~~~~~~~\n");
+			escape = 1;
+			hold = 0;
+			printf("escape: %d\n", escape);
+			printf("!escape: %d\n", !escape);
+			printf("hold: %d\n", hold);
+			printf("!hold: %d\n", !hold);
+			printf("escape & hold: %d\n", escape & hold);
+			printf("escape & !hold: %d\n", escape & !hold);
+			printf("escape && hold: %d\n", escape && hold);
+			printf("escape && !hold: %d\n", escape && !hold);
+			printf("~~~~~~~~~~~\n");
+			escape = 1;
+			hold = 1;
+			printf("escape: %d\n", escape);
+			printf("!escape: %d\n", !escape);
+			printf("hold: %d\n", hold);
+			printf("!hold: %d\n", !hold);
+			printf("escape & hold: %d\n", escape & hold);
+			printf("escape & !hold: %d\n", escape & !hold);
+			printf("escape && hold: %d\n", escape && hold);
+			printf("escape && !hold: %d\n", escape && !hold);
+			printf("~~~~~~~~~~~\n");
+			escape = 2;
+			hold = 0;
+			printf("escape: %d\n", escape);
+			printf("!escape: %d\n", !escape);
+			printf("hold: %d\n", hold);
+			printf("!hold: %d\n", !hold);
+			printf("escape & hold: %d\n", escape & hold);
+			printf("escape & !hold: %d\n", escape & !hold);
+			printf("escape && hold: %d\n", escape && hold);
+			printf("escape && !hold: %d\n", escape && !hold);
+			printf("~~~~~~~~~~~\n");
+			escape = 0;
+			hold = 2;
+			printf("escape: %d\n", escape);
+			printf("!escape: %d\n", !escape);
+			printf("hold: %d\n", hold);
+			printf("!hold: %d\n", !hold);
+			printf("escape & hold: %d\n", escape & hold);
+			printf("escape & !hold: %d\n", escape & !hold);
+			printf("escape && hold: %d\n", escape && hold);
+			printf("escape && !hold: %d\n", escape && !hold);
+			printf("~~~~~~~~~~~\n");
+			return(0);
+			//if (telegram[testSPN.byte] == 0)
+			//{
+				//telegram[byte] = 1;
+			//}
+			//else
+			//{
+				//telegram[byte] = 0;
+			//}
+		}
+	}
+	return 0;
+}
+
 
 int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* output, SPN_Config spnConfig)
 {
@@ -68,45 +182,6 @@ int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* outpu
 		val |= telegram[spnConfig.byte + i] << (8 * i);
 	}
 	*output = (val >> spnConfig.bit) & mask;
-	return 0;
-}
-
-int main()
-{
-	for (;;)
-	{
-		static uint64_t prevPrintTime = 0;
-		uint64_t printTimeout = 2000;
-		uint8_t count = 0;
-
-		int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
-		int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
-
-		uint8_t sizeOfTelegram = 8;
-		static uint8_t telegram[] = { 0b00000001,0b00000100,0b00010000,0b01000000,5,6,7,8};
-		bool trueFalse = false;
-		SPN_Config testSPN = { 2, 4, 11 };
-		int output = 0;
-		//int byte = 2;
-		//int bit = 4;
-		//int length = 11;
-
-		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
-		{
-			//getBoolFromCanTelegram(telegram, sizeOfTelegram, &trueFalse, byte, bit, length);
-			getIntFromCanTelegram(telegram, sizeOfTelegram, &output, testSPN);
-			//printf("trueFalse: %s\n", trueFalse ? "true" : "False");
-			printf("output: %d\n", output);
-			if (telegram[testSPN.byte] == 0)
-			{
-				//telegram[byte] = 1;
-			}
-			else
-			{
-				//telegram[byte] = 0;
-			}
-		}
-	}
 	return 0;
 }
 
