@@ -56,13 +56,20 @@ int main()
 		//int length = 11;
 		char escape = 1;
 		char hold = 1;
-
+		//for (int i = 1; i < 60; i++)
+		//{
+			//printf("A%d, ", i);
+		//}
+		//while (true)
+		//{
+		//}
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
+
 			//getBoolFromCanTelegram(telegram, sizeOfTelegram, &trueFalse, byte, bit, length);
 			//getIntFromCanTelegram(telegram, sizeOfTelegram, &output, testSPN);
 			//printf("trueFalse: %s\n", trueFalse ? "true" : "False");
-
+			/*
 			escape = 0;
 			hold = 0;
 			printf("escape: %d\n", escape);
@@ -138,6 +145,7 @@ int main()
 			//{
 				//telegram[byte] = 0;
 			//}
+			*/
 		}
 	}
 	return 0;
