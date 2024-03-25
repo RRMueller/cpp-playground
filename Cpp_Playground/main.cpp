@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <random>
+#include <math.h>
 
 typedef struct
 {
@@ -32,7 +33,71 @@ int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* outpu
 
 auto startTime = std::chrono::steady_clock::now(); //steady clock is great for timers, not great for epoch
 
+# define PI 3.14159265358979323846
+# define PI_2 1.57079632679489661923
 
+
+
+float invSqrt(float x)
+{
+	float halfx = 0.5f * x;
+	union
+	{
+		float f;
+		long i;
+	} conv = { x };
+	conv.i = 0x5f3759df - (conv.i >> 1);
+	conv.f *= 1.5f - (halfx * conv.f * conv.f);
+	conv.f *= 1.5f - (halfx * conv.f * conv.f);
+	return conv.f;
+}
+
+float fsc_sqrt(float x)
+{
+	return (1.0f / invSqrt(x)); // This is probably the fastest way to approximate this...
+}
+
+
+float fsc_asinf(float x)
+{
+	// https://developer.download.nvidia.com/cg/asin.html
+	float negate = (x < 0) ? -1.0f : 1.0f;
+	x = abs(x);
+	float ret = -0.0187293;
+	ret *= x;
+	ret += 0.0742610;
+	ret *= x;
+	ret -= 0.2121144;
+	ret *= x;
+	ret += 1.5707288;
+	ret = PI_2 - sqrt(1.0 - x) * ret;
+	return ret - 2 * negate * ret;
+}
+
+float fsc_atan2f(float y, float x)
+{
+	// http://pubs.opengroup.org/onlinepubs/009695399/functions/atan2.html
+	// https://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization/
+	const float ONEQTR_PI = PI / 4.0;
+	const float THRQTR_PI = 3.0 * PI / 4.0;
+	float r, angle;
+	float abs_y = fabs(y) + 1e-10f; // kludge to prevent 0/0 condition
+	if (x < 0.0f)
+	{
+		r = (x + abs_y) / (abs_y - x);
+		angle = THRQTR_PI;
+	}
+	else
+	{
+		r = (x - abs_y) / (x + abs_y);
+		angle = ONEQTR_PI;
+	}
+	angle += (0.1963f * r * r - 0.9817f) * r;
+	if (y < 0.0f)
+		return (-angle); // negate if in quad III or IV
+	else
+		return (angle);
+}
 
 
 int main()
@@ -56,13 +121,32 @@ int main()
 		//int length = 11;
 		char escape = 1;
 		char hold = 1;
-		//for (int i = 1; i < 60; i++)
+		int num_vals = 100;
+		for (int i = -num_vals; i <= num_vals; i++)
+		{
+			float sqrt = fsc_sqrt((float)i);
+			//printf("%f, diff: %f\n", i / (float)num_vals, diff);
+			printf("%f: %f\n", (float)i, sqrt);
+		}
+		//for (int i = -num_vals; i <= num_vals; i++)
 		//{
-			//printf("A%d, ", i);
+		//	float fscAsin = fsc_asinf(i / (float)num_vals) * 57.29578f;
+		//	float realAsin = asinf(i / (float)num_vals) * 57.29578f;
+		//	float diff = fscAsin - realAsin;
+		//	//printf("%f, diff: %f\n", i / (float)num_vals, diff);
+		//	printf("%f, %f, %f\n", i / (float)num_vals, fscAsin, realAsin);
 		//}
-		//while (true)
+		//for (int i = -num_vals; i <= num_vals; i++)
 		//{
+		//	float fscAtan = fsc_atan2f(i / (float)num_vals, 0.5f) * 57.29578f;
+		//	float realAtan = atan2f(i / (float)num_vals, 0.5f) * 57.29578f;
+		//	float diff = fscAtan - realAtan;
+		//	//printf("%f, diff: %f\n", i / (float)num_vals, diff);
+		//	printf("%f, %f, %f\n", i / (float)num_vals, fscAtan, realAtan);
 		//}
+		while (true)
+		{
+		}
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
 
