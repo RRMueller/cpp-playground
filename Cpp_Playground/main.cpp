@@ -121,7 +121,7 @@ int main()
 		//int length = 11;
 		char escape = 1;
 		char hold = 1;
-		int num_vals = 10;
+		int num_vals = 100;
 		//for (int i = -num_vals; i <= num_vals; i++)
 		//{
 		//	float sqrt = fsc_sqrt((float)i);
@@ -130,11 +130,11 @@ int main()
 		//}
 		for (int i = -num_vals; i <= num_vals; i++)
 		{
-			float fscAsin = fsc_asinf(i / (float)num_vals) * 57.29578f;
-			float realAsin = asinf(i / (float)num_vals) * 57.29578f;
+			float fscAsin = fsc_asinf(i / (float)num_vals);// *57.29578f;
+			float realAsin = asinf(i / (float)num_vals);// *57.29578f;
 			float diff = fscAsin - realAsin;
-			//printf("%f, diff: %f\n", i / (float)num_vals, diff);
-			printf("%f, %f, %f\n", i / (float)num_vals, fscAsin, realAsin);
+			printf("%f, diff: %f\n", i / (float)num_vals, diff);
+			//printf("%f, %f, %f\n", i / (float)num_vals, fscAsin, realAsin);
 		}
 		//for (int i = -num_vals; i <= num_vals; i++)
 		//{
