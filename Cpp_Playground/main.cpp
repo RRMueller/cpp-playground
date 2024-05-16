@@ -99,6 +99,486 @@ float fsc_atan2f(float y, float x)
 		return (angle);
 }
 
+#define SHIFT_8b 8
+
+#define SHIFT_DTC_LAMPS 50
+#define SHIFT_DTC_MSG_1 40
+#define SHIFT_DTC_MSG_2 30
+#define SHIFT_DTC_MSG_3 20
+#define SHIFT_DTC_MSG_4 10
+#define SHIFT_DTC_MSG_5 0
+
+// #define MAX_NUM_DTC_MSGS 20
+#define MAX_NUM_ENC_DTC_MSGS 4
+#define MAX_NUM_DTCS_PER_ENC_MSG 5
+#define MAX_NUM_BYTES_PER_DTC_MSG 8
+#define MASK_4LSB 0x0F
+#define MASK_8LSB 0xFF
+#define MASK_10LSB 0x3FF
+
+#define RBR_ISOBUS_DTC_LIST_SIZE_DU16           20u
+
+typedef struct rbr_isobus_dtc_t
+{
+	uint32_t spn_u32;
+	uint8_t  fmi_u8;
+	uint8_t  occ_u8;
+} rbr_isobus_dtc_ts;
+
+enum DTC_Codes
+{
+  DFC_EGRVlvDrftClsd,
+  DFC_FuelPLoP,
+  DFC_FuelPSRCMax,
+  DFC_FuelPSRCMin,
+  DFC_FlFWLvlWtHi,
+  DFC_OilPSwmpPhysRngHi,
+  DFC_OilPSwmpPhysRngLo,
+  DFC_OilPSwmpSRCMax,
+  DFC_OilPSwmpSRCMin,
+  DFC_TCACDsPhysRngHi,
+  DFC_PAirFltDSRCMax,
+  DFC_PAirFltDSRCMin,
+  DFC_AirFltClogDet,
+  DFC_PEnvRngChkMax,
+  DFC_PEnvRngChkMin,
+  DFC_PEnvSnsrPlaus,
+  DFC_PEnvSigRngMax,
+  DFC_PEnvSigRngMin,
+  DFC_CEngDsTPhysRngHi,
+  DFC_CEngDsTSRCMax,
+  DFC_CEngDsTSRCMin,
+  DFC_CEngDsTNplHigh,
+  DFC_CEngDsTAbsTst,
+  DFC_CEngDsTDynTst,
+  DFC_RailPSRCMax,
+  DFC_RailPSRCMin,
+  DFC_AltIOMonPlaus,
+  DFC_BattUSRCMax,
+  DFC_BattUSRCMin,
+  DFC_FuelTPhysRngHi,
+  DFC_FuelTSRCMax,
+  DFC_FuelTSRCMin,
+  DFC_OilTPhysRngHi,
+  DFC_OilTSRCMax,
+  DFC_OilTSRCMin,
+  DFC_OilTNplHigh,
+  DFC_EpmCaSI1OfsErr,
+  DFC_EpmCaSI1ErrSig,
+  DFC_EpmCrSErrSig,
+  DFC_EpmCaSI1NoSig,
+  DFC_EpmCrSNoSig,
+  DFC_StrtCoilHSSCB,
+  DFC_GbxAliveChk,
+  DFC_BusDiagBusOffNodeA,
+  DFC_InjVlv_DI_ScCyl_0,
+  DFC_InjVlv_DI_ScHsLs_0,
+  DFC_InjVlv_DI_NoLd_0,
+  DFC_IVAdjDiaIVAdj_0,
+  DFC_InjVlv_DI_ScCyl_3,
+  DFC_InjVlv_DI_ScHsLs_3,
+  DFC_InjVlv_DI_NoLd_3,
+  DFC_IVAdjDiaIVAdj_3,
+  DFC_InjVlv_DI_ScCyl_1,
+  DFC_InjVlv_DI_ScHsLs_1,
+  DFC_InjVlv_DI_NoLd_1,
+  DFC_IVAdjDiaIVAdj_1,
+  DFC_InjVlv_DI_ScCyl_2,
+  DFC_InjVlv_DI_ScHsLs_2,
+  DFC_InjVlv_DI_NoLd_2,
+  DFC_IVAdjDiaIVAdj_2,
+  DFC_GlwPlgDiff,
+  DFC_GlwPlgLVSSCB,
+  DFC_GlwPlgLVSSCG,
+  DFC_GlwPlgLVSOL,
+  DFC_GlwPlgDiagErr,
+  DFC_GlwPlgLVSOvrTemp,
+  DFC_GlwPlg2of3,
+  DFC_StrtLSSCB,
+  DFC_StrtLSSCG,
+  DFC_StrtOL,
+  DFC_T50Err,
+  DFC_StrtLSOvrTemp,
+  DFC_ComCM1TO,
+  DFC_MeUnOL,
+  DFC_MeUnOT,
+  DFC_MeUnShCirLSBatt,
+  DFC_MeUnShCirLSGnd,
+  DFC_EngICO,
+  DFC_TECUSigRngMax,
+  DFC_TECUSigRngMin,
+  DFC_TECUPhysRngHi,
+  DFC_BusDiagBusOffNodeB,
+  DFC_PCVOL,
+  DFC_PCVOT,
+  DFC_PCVShCirLSBatt,
+  DFC_PCVShCirLSGnd,
+  DFC_EngPrtOvrSpd,
+  DFC_MRlyErlyOpng,
+  DFC_EGRVlvJamVlvOpn,
+  DFC_EGRVlvJamVlvClsd,
+  DFC_EGRVlvSRCMax,
+  DFC_EGRVlvSRCMin,
+  DFC_EGRVlvDrftOpn,
+  DFC_EGRVlvGovDvtMin,
+  DFC_EGRVlvGovDvtMax,
+  DFC_EEPWrErr,
+  DFC_EEPRdErr,
+  DFC_SSpMon1,
+  DFC_SSpMon2,
+  DFC_SSpMon3,
+  DFC_GlwPlgPLUGSC_0,
+  DFC_GlwPlgPLUGErr_0,
+  DFC_GlwPlgPLUGSC_1,
+  DFC_GlwPlgPLUGErr_1,
+  DFC_GlwPlgPLUGSC_2,
+  DFC_GlwPlgPLUGErr_2,
+  DFC_GlwPlgPLUGSC_3,
+  DFC_GlwPlgPLUGErr_3,
+  DFC_EGRVlvHBrgShCirBatt1,
+  DFC_EGRVlvHBrgShCirGnd1,
+  DFC_EGRVlvHBrgOpnLd,
+  DFC_EGRVlvHBrgOvrTemp,
+  DFC_EGRVlvHBrgShCirBatt2,
+  DFC_EGRVlvHBrgShCirGnd2,
+  DFC_StrtHSSCB,
+  DFC_StrtHSSCG,
+  DFC_StrtHSOvrTemp,
+  DFC_PSPSCB,
+  DFC_PSPSCG,
+  DFC_PSPOL,
+  DFC_PSPOvrTemp,
+  DFC_BusDiagBusOffErrPasNodeA,
+  DFC_BusDiagBusOffErrPasNodeB,
+  DFC_ComTSC1TETO,
+  DFC_RailPCV0,
+  DFC_RailPCV2,
+  DFC_RailPCV42,
+  DFC_RailPCV4,
+  DFC_InjVlv_DI_ScBnk_0,
+  DFC_InjVlv_DI_ScBnk_1,
+  DFC_RailMeUn0,
+  DFC_RailMeUn4,
+  DFC_GlwPlgUnErr,
+  DFC_GlwPlgT30Miss,
+  DFC_MoCADCTst,
+  DFC_MoCADCVltgRatio,
+  DFC_MoCComErrCnt,
+  DFC_MoCComSPI,
+  DFC_MoCROMErrXPg,
+  DFC_MoCSOPErrMMRespByte,
+  DFC_MoCSOPErrNoChk,
+  DFC_MoCSOPErrRespTime,
+  DFC_MoCSOPErrSPI,
+  DFC_MoCSOPLoLi,
+  DFC_MoCSOPMM,
+  DFC_MoCSOPOSTimeOut,
+  DFC_MoCSOPPsvTstErr,
+  DFC_MoCSOPTimeOut,
+  DFC_MoCSOPUpLi,
+  DFC_MoFAPP,
+  DFC_MoFESpd,
+  DFC_MoFInjDatET,
+  DFC_MoFInjDatPhi,
+  DFC_MoFInjQnt,
+  DFC_MoFMode2,
+  DFC_MoFMode3,
+  DFC_MoFOvR,
+  DFC_MoFOvRHtPrt,
+  DFC_MoFQntCor,
+  DFC_MoFRailP,
+  DFC_MoFRmtAPP,
+  DFC_MoFTrqCmp,
+  DFC_MonLimCurr,
+  DFC_MonLimLead,
+  DFC_MonLimSet,
+  DFC_MoFInjDatBlkShtET,
+  DFC_OCWDACom_ERR,
+  DFC_OCWDALowVltg,
+  DFC_OCWDAOvrVltg,
+  DFC_OCWDAReasUnkwn,
+  DFC_RailMeUn10,
+  DFC_RailMeUn2,
+  DFC_SWReset_0,
+  DFC_SWReset_1,
+  DFC_SWReset_2,
+  DFC_MoCADCNTP,
+  DFC_MoFStrt,
+  DFC_Cy327SpiCom,
+  NUM_DTC_CODES // Special value to represent the total number of DTC codes
+};
+
+
+
+
+
+
+// DM1/DM2 CODES
+rbr_isobus_dtc_ts dtc_info_array[NUM_DTC_CODES] = {
+    {.spn_u32 = 27, .fmi_u8 = 17, .occ_u8 = 0},              // EGR Valve
+    {.spn_u32 = 94, .fmi_u8 = 13, .occ_u8 = 0},                    // Low fuel pressure error monitoring
+    {.spn_u32 = 95, .fmi_u8 = 3, .occ_u8 = 0},                  // SRC High for Environment Pressure
+    {.spn_u32 = 95, .fmi_u8 = 4, .occ_u8 = 0},                  // SRC low for Environment Pressure
+    {.spn_u32 = 97, .fmi_u8 = 15, .occ_u8 = 0},                 // Water in fuel detected
+    {.spn_u32 = 100, .fmi_u8 = 0, .occ_u8 = 0},           // Maximum oil pressure error in plausibility check
+    {.spn_u32 = 100, .fmi_u8 = 1, .occ_u8 = 0},           // Minimum oil pressure error in plausibility check
+    {.spn_u32 = 100, .fmi_u8 = 3, .occ_u8 = 0},              // SRC high for oil pressure sensor
+    {.spn_u32 = 100, .fmi_u8 = 0, .occ_u8 = 0},              // SRC low for Oil pressure sensor
+    {.spn_u32 = 105, .fmi_u8 = 17, .occ_u8 = 0},            // Physical Range Check high for Charged Air cooler down stream temperature
+    {.spn_u32 = 107, .fmi_u8 = 3, .occ_u8 = 0},              // SRC High for Controller Mode Switch
+    {.spn_u32 = 107, .fmi_u8 = 4, .occ_u8 = 0},              // SRC low for Controller Mode Switch
+    {.spn_u32 = 107, .fmi_u8 = 14, .occ_u8 = 0},              // Error path for Clog Detection in Air filter
+    {.spn_u32 = 108, .fmi_u8 = 0, .occ_u8 = 0},               // Ambient air pressure sensor range chack max-error
+    {.spn_u32 = 108, .fmi_u8 = 1, .occ_u8 = 0},               // Ambient air pressure sensor range check min-error
+    {.spn_u32 = 108, .fmi_u8 = 2, .occ_u8 = 0},               // Ambient air pressure sensor sensor error by component self diagnosis
+    {.spn_u32 = 108, .fmi_u8 = 3, .occ_u8 = 0},               // fault check max signal range violated for ambient air pressure sensor
+    {.spn_u32 = 108, .fmi_u8 = 4, .occ_u8 = 0},               // fault check min signal range violated for ambient air pressure sensor
+    {.spn_u32 = 110, .fmi_u8 = 0, .occ_u8 = 0},            // Physical Range Check high for CEngDsT
+    {.spn_u32 = 110, .fmi_u8 = 3, .occ_u8 = 0},               // SRC High for Engine coolant temperature(down stream)
+    {.spn_u32 = 110, .fmi_u8 = 4, .occ_u8 = 0},               // SRC low for Engine coolant temperature(down stream)
+    {.spn_u32 = 110, .fmi_u8 = 16, .occ_u8 = 0},             // Engine coolant temperature too high plausibility error
+    {.spn_u32 = 110, .fmi_u8 = 17, .occ_u8 = 0},              // defect fault check for Absolute plausibility test
+    {.spn_u32 = 110, .fmi_u8 = 18, .occ_u8 = 0},              // defect fault check for dynamic plausibility test
+    {.spn_u32 = 157, .fmi_u8 = 3, .occ_u8 = 0},                 // Sensor voltage above upper limit
+    {.spn_u32 = 157, .fmi_u8 = 4, .occ_u8 = 0},                 // Sensor voltage below lower limit
+    {.spn_u32 = 167, .fmi_u8 = 7, .occ_u8 = 0},               // Plausibility check for input signal for monitoring the alternator
+    {.spn_u32 = 168, .fmi_u8 = 3, .occ_u8 = 0},                 // Diagnostic Fault Check for Signal Range Max Check of Battery Voltage
+    {.spn_u32 = 168, .fmi_u8 = 4, .occ_u8 = 0},                 // Diagnostic Fault Check for Signal Range Min Check of Battery Voltage
+    {.spn_u32 = 174, .fmi_u8 = 0, .occ_u8 = 0},              // Physical Range Check high for fuel temperature
+    {.spn_u32 = 174, .fmi_u8 = 3, .occ_u8 = 0},                 // SRC high for fuel temperature sensor
+    {.spn_u32 = 174, .fmi_u8 = 4, .occ_u8 = 0},                 // SRC low for fuel temperature sensor
+    {.spn_u32 = 175, .fmi_u8 = 0, .occ_u8 = 0},               // Physical Range Check high for Oil Temperature
+    {.spn_u32 = 175, .fmi_u8 = 3, .occ_u8 = 0},                  // SRC High for Oil Temperature
+    {.spn_u32 = 175, .fmi_u8 = 4, .occ_u8 = 0},                  // SRC low for Oil Temperature
+    {.spn_u32 = 175, .fmi_u8 = 13, .occ_u8 = 0},                // Oil temperature too high plausibility error
+    {.spn_u32 = 190, .fmi_u8 = 2, .occ_u8 = 0},              // DFC for camshaft offset angle exceeded
+    {.spn_u32 = 190, .fmi_u8 = 8, .occ_u8 = 0},              // DFC for camshaft signal diagnose - disturbed signal
+    {.spn_u32 = 190, .fmi_u8 = 9, .occ_u8 = 0},                // DFC for crankshaft signal diagnose - disturbed signal
+    {.spn_u32 = 190, .fmi_u8 = 12, .occ_u8 = 0},              // DFC for camshaft signal diagnose - no signal
+    {.spn_u32 = 190, .fmi_u8 = 18, .occ_u8 = 0},                // DFC for crankshaft signal diagnose - no signal
+    {.spn_u32 = 430, .fmi_u8 = 3, .occ_u8 = 0},               // Short circuit to battery error at High side of coil in Inhibit starter strategy
+    {.spn_u32 = 604, .fmi_u8 = 2, .occ_u8 = 0},                 // Alive Detection for Gbx_stNPos
+    {.spn_u32 = 639, .fmi_u8 = 14, .occ_u8 = 0},         // BusOff error CAN A
+    {.spn_u32 = 651, .fmi_u8 = 3, .occ_u8 = 0},           // Short circuit of the power stage low-side (cylinder error)
+    {.spn_u32 = 651, .fmi_u8 = 4, .occ_u8 = 0},          // Short circuit between high-side and low-side of the power stage (high-side non plausible error)
+    {.spn_u32 = 651, .fmi_u8 = 5, .occ_u8 = 0},            // Open load on the power stage
+    {.spn_u32 = 651, .fmi_u8 = 13, .occ_u8 = 0},            // check of missing injector adjustment value programming
+    {.spn_u32 = 652, .fmi_u8 = 3, .occ_u8 = 0},           // Short circuit of the power stage low-side (cylinder error)
+    {.spn_u32 = 652, .fmi_u8 = 4, .occ_u8 = 0},          // Short circuit between high-side and low-side of the power stage (high-side non plausible error)
+    {.spn_u32 = 652, .fmi_u8 = 5, .occ_u8 = 0},            // Open load on the power stage
+    {.spn_u32 = 652, .fmi_u8 = 13, .occ_u8 = 0},            // check of missing injector adjustment value programming
+    {.spn_u32 = 653, .fmi_u8 = 3, .occ_u8 = 0},           // Short circuit of the power stage low-side (cylinder error)
+    {.spn_u32 = 653, .fmi_u8 = 4, .occ_u8 = 0},          // Short circuit between high-side and low-side of the power stage (high-side non plausible error)
+    {.spn_u32 = 653, .fmi_u8 = 5, .occ_u8 = 0},            // Open load on the power stage
+    {.spn_u32 = 653, .fmi_u8 = 13, .occ_u8 = 0},            // check of missing injector adjustment value programming
+    {.spn_u32 = 654, .fmi_u8 = 3, .occ_u8 = 0},           // Short circuit of the power stage low-side (cylinder error)
+    {.spn_u32 = 654, .fmi_u8 = 4, .occ_u8 = 0},          // Short circuit between high-side and low-side of the power stage (high-side non plausible error)
+    {.spn_u32 = 654, .fmi_u8 = 5, .occ_u8 = 0},            // Open load on the power stage
+    {.spn_u32 = 654, .fmi_u8 = 13, .occ_u8 = 0},            // check of missing injector adjustment value programming
+    {.spn_u32 = 676, .fmi_u8 = 2, .occ_u8 = 0},                  // DFC for coding error when different coding words were received in a coding cycle
+    {.spn_u32 = 676, .fmi_u8 = 3, .occ_u8 = 0},                // Short circuit to battery error for Low Voltage System
+    {.spn_u32 = 676, .fmi_u8 = 4, .occ_u8 = 0},                // Short circuit to ground error for Low Voltage System
+    {.spn_u32 = 676, .fmi_u8 = 5, .occ_u8 = 0},                 // No load error for Low Voltage System
+    {.spn_u32 = 676, .fmi_u8 = 11, .occ_u8 = 0},              // DFC for faulty diagnostic data transmission or protocol error
+    {.spn_u32 = 676, .fmi_u8 = 12, .occ_u8 = 0},           // Over temperature error on ECU powerstage for Glow plug Low Voltage System
+    {.spn_u32 = 676, .fmi_u8 = 21, .occ_u8 = 0},                 // DFC for coding error when selected coding is not working
+    {.spn_u32 = 677, .fmi_u8 = 3, .occ_u8 = 0},                   // Short circuit to battery error for Starter low side
+    {.spn_u32 = 677, .fmi_u8 = 4, .occ_u8 = 0},                   // Short circuit to ground error for Starter low side
+    {.spn_u32 = 677, .fmi_u8 = 5, .occ_u8 = 0},                      // No load error for Starter
+    {.spn_u32 = 677, .fmi_u8 = 10, .occ_u8 = 0},                     // Defective T50 switch
+    {.spn_u32 = 677, .fmi_u8 = 12, .occ_u8 = 0},              // Over temperature error for Starter low side
+    {.spn_u32 = 986, .fmi_u8 = 9, .occ_u8 = 0},                    // Timeout Error of CAN-Receive-Frame Cab Message 1
+    {.spn_u32 = 1076, .fmi_u8 = 5, .occ_u8 = 0},                     // open load of metering unit output
+    {.spn_u32 = 1076, .fmi_u8 = 12, .occ_u8 = 0},                    // over teperature of device driver of metering unit
+    {.spn_u32 = 1076, .fmi_u8 = 16, .occ_u8 = 0},           // short circuit to battery of metering unit output
+    {.spn_u32 = 1076, .fmi_u8 = 18, .occ_u8 = 0},            // short circuit to ground of metering unit output
+    {.spn_u32 = 1109, .fmi_u8 = 11, .occ_u8 = 0},                    // Injection cut off demand (ICO) for shut off coordinator
+    {.spn_u32 = 1136, .fmi_u8 = 0, .occ_u8 = 0},              // ECU Temperature Sensor MAX
+    {.spn_u32 = 1136, .fmi_u8 = 1, .occ_u8 = 0},              // ECU Temperature Sensor MIN
+    {.spn_u32 = 1136, .fmi_u8 = 16, .occ_u8 = 0},             // Diagnostic Fault Check for Physical Signal above maximum limit
+    {.spn_u32 = 1231, .fmi_u8 = 14, .occ_u8 = 0},        // BusOff error CAN B
+    {.spn_u32 = 1244, .fmi_u8 = 5, .occ_u8 = 0},                      // open load of pressure control valve output
+    {.spn_u32 = 1244, .fmi_u8 = 12, .occ_u8 = 0},                     // over teperature of device driver of pressure control valve
+    {.spn_u32 = 1244, .fmi_u8 = 16, .occ_u8 = 0},            // short circuit to battery of pressure control valve output
+    {.spn_u32 = 1244, .fmi_u8 = 18, .occ_u8 = 0},             // short circuit to ground of the pressure control valve output
+    {.spn_u32 = 1769, .fmi_u8 = 11, .occ_u8 = 0},              // Overspeed detection in component engine protection
+    {.spn_u32 = 2634, .fmi_u8 = 11, .occ_u8 = 0},              // Early opening defect of main relay
+    {.spn_u32 = 2791, .fmi_u8 = 0, .occ_u8 = 0},            // EGR Valve OPEN
+    {.spn_u32 = 2791, .fmi_u8 = 1, .occ_u8 = 0},           // EGR Valve CLOSED
+    {.spn_u32 = 2791, .fmi_u8 = 13, .occ_u8 = 0},              // EGR Valve SCR MAX
+    {.spn_u32 = 2791, .fmi_u8 = 14, .occ_u8 = 0},              // EGR Valve SCR MIN
+    {.spn_u32 = 2791, .fmi_u8 = 15, .occ_u8 = 0},             // EGR Valve DRFT OPEN
+    {.spn_u32 = 2791, .fmi_u8 = 16, .occ_u8 = 0},           // EGR Valve GOV DVT MIN
+    {.spn_u32 = 2791, .fmi_u8 = 18, .occ_u8 = 0},           // EGR Valve GOV DVT MAX
+    {.spn_u32 = 2802, .fmi_u8 = 12, .occ_u8 = 0},                  // EEP Write Error based on the error in storing the blocks in memory media
+    {.spn_u32 = 2802, .fmi_u8 = 14, .occ_u8 = 0},                  // EEP Read Error based on the error in reading blocks from memory media
+    {.spn_u32 = 3509, .fmi_u8 = 2, .occ_u8 = 0},                    // Voltage fault at Sensor supply 1
+    {.spn_u32 = 3510, .fmi_u8 = 2, .occ_u8 = 0},                    // Voltage fault at Sensor supply 2
+    {.spn_u32 = 3511, .fmi_u8 = 2, .occ_u8 = 0},                    // Voltage fault at Sensor supply 3
+    {.spn_u32 = 5324, .fmi_u8 = 4, .occ_u8 = 0},             // Array of DFCs for short circuit in i+1th Glow Plug
+    {.spn_u32 = 5324, .fmi_u8 = 11, .occ_u8 = 0},           // Array of DFCs for failure in i+1th Glow Plug
+    {.spn_u32 = 5325, .fmi_u8 = 4, .occ_u8 = 0},             // Array of DFCs for short circuit in i+1th Glow Plug
+    {.spn_u32 = 5325, .fmi_u8 = 11, .occ_u8 = 0},           // Array of DFCs for failure in i+1th Glow Plug
+    {.spn_u32 = 5326, .fmi_u8 = 4, .occ_u8 = 0},             // Array of DFCs for short circuit in i+1th Glow Plug
+    {.spn_u32 = 5326, .fmi_u8 = 11, .occ_u8 = 0},           // Array of DFCs for failure in i+1th Glow Plug
+    {.spn_u32 = 5327, .fmi_u8 = 4, .occ_u8 = 0},             // Array of DFCs for short circuit in i+1th Glow Plug
+    {.spn_u32 = 5327, .fmi_u8 = 11, .occ_u8 = 0},           // Array of DFCs for failure in i+1th Glow Plug
+    {.spn_u32 = 5763, .fmi_u8 = 33, .occ_u8 = 0},      // EGR VALVE
+    {.spn_u32 = 5763, .fmi_u8 = 4, .occ_u8 = 0},        // EGR VALVE
+    {.spn_u32 = 5763, .fmi_u8 = 5, .occ_u8 = 0},            // EGR VALVE
+    {.spn_u32 = 5763, .fmi_u8 = 12, .occ_u8 = 0},         // EGR VALVE
+    {.spn_u32 = 5770, .fmi_u8 = 3, .occ_u8 = 0},       // EGR VALVE
+    {.spn_u32 = 5770, .fmi_u8 = 4, .occ_u8 = 0},        // EGR VALVE
+    {.spn_u32 = 6385, .fmi_u8 = 3, .occ_u8 = 0},                  // Short circuit to battery error for Starter high side
+    {.spn_u32 = 6385, .fmi_u8 = 4, .occ_u8 = 0},                  // Short circuit to ground error for Starter high side
+    {.spn_u32 = 6385, .fmi_u8 = 12, .occ_u8 = 0},             // Over temperature error for Starter high side
+    {.spn_u32 = 6719, .fmi_u8 = 3, .occ_u8 = 0},                     // short circuit to battery of pre-supply pump output
+    {.spn_u32 = 6719, .fmi_u8 = 4, .occ_u8 = 0},                     // short circuit to ground of pre-supply pump output
+    {.spn_u32 = 6719, .fmi_u8 = 5, .occ_u8 = 0},                      // open load of pre-supply pump output
+    {.spn_u32 = 6719, .fmi_u8 = 12, .occ_u8 = 0},                // Over temperature error on ECU powerstage for Pre supply pump
+    {.spn_u32 = 22000, .fmi_u8 = 14, .occ_u8 = 0}, // error passive CAN A
+    {.spn_u32 = 22001, .fmi_u8 = 15, .occ_u8 = 0}, // error passive CAN B
+    {.spn_u32 = 22040, .fmi_u8 = 19, .occ_u8 = 0},              // Timeout Error of CAN-Receive-Frame TSC1TE
+    {.spn_u32 = 523037, .fmi_u8 = 0, .occ_u8 = 0},                 // maximum positive deviation of rail pressure exceeded
+    {.spn_u32 = 523040, .fmi_u8 = 0, .occ_u8 = 0},                 // maximum negative rail pressure deviation with closed pressure control valve exceeded
+    {.spn_u32 = 523042, .fmi_u8 = 0, .occ_u8 = 0},                // maximum rail pressure exceeded (second stage)
+    {.spn_u32 = 523043, .fmi_u8 = 0, .occ_u8 = 0},                 // maximum rail pressure exceeded
+    {.spn_u32 = 523350, .fmi_u8 = 4, .occ_u8 = 0},        // Short circuit of the power stage high-side (bank error)
+    {.spn_u32 = 523352, .fmi_u8 = 4, .occ_u8 = 0},        // Short circuit of the power stage high-side (bank error)
+    {.spn_u32 = 523613, .fmi_u8 = 0, .occ_u8 = 0},                // maximum positive deviation of rail pressure exceeded
+    {.spn_u32 = 523613, .fmi_u8 = 16, .occ_u8 = 0},               // maximum rail pressure exceeded
+    {.spn_u32 = 523676, .fmi_u8 = 12, .occ_u8 = 0},             // DFC for glow module error in GCU-T
+    {.spn_u32 = 523676, .fmi_u8 = 16, .occ_u8 = 0},           // DFC for T30 missing error in GCU-T
+    {.spn_u32 = 524059, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report the ADC test error
+    {.spn_u32 = 524060, .fmi_u8 = 12, .occ_u8 = 0},         // Diagnostic fault check to report the error in Voltage ratio in ADC monitoring
+    {.spn_u32 = 524061, .fmi_u8 = 12, .occ_u8 = 0},            // Diagnostic fault check to report errors in query-/response-communication
+    {.spn_u32 = 524062, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report errors in SPI-communication
+    {.spn_u32 = 524063, .fmi_u8 = 12, .occ_u8 = 0},            // Diagnostic fault check to report multiple error while checking the complete ROM-memory
+    {.spn_u32 = 524064, .fmi_u8 = 12, .occ_u8 = 0},     // Loss of synchronization sending bytes to the MM from CPU.
+    {.spn_u32 = 524065, .fmi_u8 = 12, .occ_u8 = 0},          // DFC to set a torque limitation once an error is detected before MoCSOP's error reaction is set
+    {.spn_u32 = 524066, .fmi_u8 = 12, .occ_u8 = 0},       // Wrong set response time
+    {.spn_u32 = 524067, .fmi_u8 = 12, .occ_u8 = 0},            // Too many SPI errors during MoCSOP execution.
+    {.spn_u32 = 524068, .fmi_u8 = 12, .occ_u8 = 0},              // Diagnostic fault check to report the error in undervoltage monitoring
+    {.spn_u32 = 524069, .fmi_u8 = 12, .occ_u8 = 0},                // Diagnostic fault check to report that WDA is not working correct
+    {.spn_u32 = 524070, .fmi_u8 = 12, .occ_u8 = 0},         // OS timeout in the shut off path test. Failure setting the alarm task period.
+    {.spn_u32 = 524071, .fmi_u8 = 12, .occ_u8 = 0},         // Diagnostic fault check to report that the positive test failed
+    {.spn_u32 = 524072, .fmi_u8 = 12, .occ_u8 = 0},           // Diagnostic fault check to report the timeout in the shut off path test
+    {.spn_u32 = 524073, .fmi_u8 = 12, .occ_u8 = 0},              // Diagnostic fault check to report the error in overvoltage monitoring
+    {.spn_u32 = 524074, .fmi_u8 = 12, .occ_u8 = 0},                  // Diagnostic fault check to report the accelerator pedal position error
+    {.spn_u32 = 524075, .fmi_u8 = 12, .occ_u8 = 0},                 // Diagnostic fault check to report the engine speed error
+    {.spn_u32 = 524076, .fmi_u8 = 12, .occ_u8 = 0},             // Diagnostic fault check to report the plausibility error between level 1 energizing time and level 2 information
+    {.spn_u32 = 524077, .fmi_u8 = 12, .occ_u8 = 0},            // Diagnostic fault check to report the error due to plausibility between the injection begin v/s injection type
+    {.spn_u32 = 524078, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report the error due to non plausibility in ZFC
+    {.spn_u32 = 524080, .fmi_u8 = 12, .occ_u8 = 0},                // Diagnosis fault check to report the error to demand for an ICO due to an error in the PoI2 shut-off
+    {.spn_u32 = 524081, .fmi_u8 = 12, .occ_u8 = 0},                // Diagnosis fault check to report the error to demand for an ICO due to an error in the PoI3 efficiency factor
+    {.spn_u32 = 524082, .fmi_u8 = 12, .occ_u8 = 0},                  // Diagnostic fault check to report the error due to Over Run
+    {.spn_u32 = 524083, .fmi_u8 = 12, .occ_u8 = 0},             // Diagnostic fault check to report the error due to cooling injection in Over Run
+    {.spn_u32 = 524084, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report the error due to injection quantity correction
+    {.spn_u32 = 524085, .fmi_u8 = 12, .occ_u8 = 0},                // Diagnostic fault check to report the plausibility error in rail pressure monitoring
+    {.spn_u32 = 524086, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report the remote accelerator pedal position error
+    {.spn_u32 = 524087, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report the error due to torque comparison
+    {.spn_u32 = 524088, .fmi_u8 = 12, .occ_u8 = 0},              // Diagnosis of curr path limitation forced by ECU monitoring level 2
+    {.spn_u32 = 524089, .fmi_u8 = 12, .occ_u8 = 0},              // Diagnosis of lead path limitation forced by ECU monitoring level 2
+    {.spn_u32 = 524090, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnosis of set path limitation forced by ECU monitoring level 2
+    {.spn_u32 = 524093, .fmi_u8 = 12, .occ_u8 = 0},       // Diagnostic fault check to report the plausibility error for Blankshot injection
+    {.spn_u32 = 524098, .fmi_u8 = 12, .occ_u8 = 0},            // Not the same name cuz it exists elsewhere.. Diagnostic fault check to report "WDA active" due to errors in query-/response communication
+    {.spn_u32 = 524099, .fmi_u8 = 12, .occ_u8 = 0},            // Diagnostic fault check to report "ABE active" due to undervoltage detection
+    {.spn_u32 = 524100, .fmi_u8 = 12, .occ_u8 = 0},            // Diagnostic fault check to report "ABE active" due to overvoltage detection
+    {.spn_u32 = 524101, .fmi_u8 = 12, .occ_u8 = 0},          // Diagnostic fault check to report "WDA/ABE active" due to unknown reason
+    {.spn_u32 = 524104, .fmi_u8 = 0, .occ_u8 = 0},               // leakage is detected based on fuel quantity balance
+    {.spn_u32 = 524105, .fmi_u8 = 0, .occ_u8 = 0},                // maximum negative rail pressure deviation with metering unit on lower limit is exceeded
+    {.spn_u32 = 524120, .fmi_u8 = 14, .occ_u8 = 0},               // Visibility of SoftwareResets in DSM
+    {.spn_u32 = 524121, .fmi_u8 = 14, .occ_u8 = 0},               // Visibility of SoftwareResets in DSM
+    {.spn_u32 = 524122, .fmi_u8 = 14, .occ_u8 = 0},               // Visibility of SoftwareResets in DSM
+    {.spn_u32 = 524124, .fmi_u8 = 12, .occ_u8 = 0},               // Diagnostic fault check to report the NTP error in ADC monitoring
+    {.spn_u32 = 524128, .fmi_u8 = 12, .occ_u8 = 0},                 // function monitoring: fault in the monitoring of the start control
+    {.spn_u32 = 524131, .fmi_u8 = 12, .occ_u8 = 0}              // CY327 SPI Communication Error
+};
+
+
+// just a linear search function - takes at most 12us to complete at 180 searchable indexes
+int16_t GetIndexOfDM1(uint32_t spn, uint8_t fmi, rbr_isobus_dtc_ts dtcs[], uint16_t len)
+{
+  int i;
+  for (i = 0; i < len; i++)
+  {
+    if (spn == dtcs[i].spn_u32 && fmi == dtcs[i].fmi_u8)
+    {
+      return i;
+    }
+  }
+  return -1;
+}
+
+void EncodeDTCMessages(rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16])
+{
+	int i;
+	for (i = 0; i < RBR_ISOBUS_DTC_LIST_SIZE_DU16; i++)
+	{
+    int16_t output = GetIndexOfDM1(listDTCs[i].spn_u32, listDTCs[i].fmi_u8, dtc_info_array, NUM_DTC_CODES);
+    if (output != -1)
+      encDTCs[i] = output;
+	}
+}
+
+void SerializeDTCMessages(uint8_t lamps, rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], uint8_t numDTCs, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG], uint8_t* numEncodedMessages)
+{
+  uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { 0 };
+	EncodeDTCMessages(listDTCs, encDTCs);
+
+	uint64_t encMsg;
+	*numEncodedMessages = 1 + (numDTCs / MAX_NUM_DTCS_PER_ENC_MSG); // up to 20 DTCs can be stored from bds, so send up to 4 messages of 5 DTCs each.
+	int i;
+	for (i = 0; i < MAX_NUM_DTCS_PER_ENC_MSG; i++)
+	{
+		encMsg = 0; // start off clean
+		encMsg |= (uint64_t)(lamps & MASK_4LSB) << SHIFT_DTC_LAMPS;                                      // lamps is only 4 last bits
+		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 0] & MASK_10LSB) << SHIFT_DTC_MSG_1; // listDTCs are 10bit numbers
+		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 1] & MASK_10LSB) << SHIFT_DTC_MSG_2;
+		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 2] & MASK_10LSB) << SHIFT_DTC_MSG_3;
+		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 3] & MASK_10LSB) << SHIFT_DTC_MSG_4;
+		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 4] & MASK_10LSB) << SHIFT_DTC_MSG_5;
+		int j;
+		for (j = 0; j < MAX_NUM_BYTES_PER_DTC_MSG; j++)
+		{
+			encodedMessages[i][j] = (encMsg >> (SHIFT_8b * j)) & MASK_8LSB; // Converting to a 64-bit num makes parsing easier
+		}
+	}
+}
+
+void DecodeDTCMessages(uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], rbr_isobus_dtc_ts decDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16])
+{
+  int i;
+  for (i = 0; i < RBR_ISOBUS_DTC_LIST_SIZE_DU16; i++)
+  {
+    decDTCs[i] = dtc_info_array[encDTCs[i]];
+  }
+}
+
+void ParseDTCMessages(uint8_t* lamps, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG], uint8_t numEncodedMessages, rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], uint8_t* numDTCs)
+{
+  uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16];
+  uint64_t encMsg = 0;
+  int i;
+  for (i = 0; i < MAX_NUM_ENC_DTC_MSGS; i++)
+  {
+    encMsg = 0;
+    int j;
+    for (j = 0; j < MAX_NUM_BYTES_PER_DTC_MSG; j++)
+    {
+      encMsg |= encodedMessages[i][j] << (SHIFT_8b * j); // Converting to a 64-bit num makes parsing easier
+    }
+    *lamps = (encMsg >> SHIFT_DTC_LAMPS) & MASK_4LSB;
+    encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 0] = (encMsg >> SHIFT_DTC_MSG_1) & MASK_10LSB;
+    encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 1] = (encMsg >> SHIFT_DTC_MSG_2) & MASK_10LSB;
+    encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 2] = (encMsg >> SHIFT_DTC_MSG_3) & MASK_10LSB;
+    encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 3] = (encMsg >> SHIFT_DTC_MSG_4) & MASK_10LSB;
+    encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 4] = (encMsg >> SHIFT_DTC_MSG_5) & MASK_10LSB;
+  }
+  DecodeDTCMessages(encDTCs, listDTCs);
+}
+
+
 
 int main()
 {
@@ -108,128 +588,38 @@ int main()
 		uint64_t printTimeout = 2000;
 		uint8_t count = 0;
 
-		int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
-		int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
+		//int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
+		//int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
 
-		//uint8_t sizeOfTelegram = 8;
-		//static uint8_t telegram[] = { 0b00000001,0b00000100,0b00010000,0b01000000,5,6,7,8};
-		//bool trueFalse = false;
-		//SPN_Config testSPN = { 2, 4, 11 };
-		//int output = 0;
-		//int byte = 2;
-		//int bit = 4;
-		//int length = 11;
-		char escape = 1;
-		char hold = 1;
-		int num_vals = 100;
-		//for (int i = -num_vals; i <= num_vals; i++)
-		//{
-		//	float sqrt = fsc_sqrt((float)i);
-		//	//printf("%f, diff: %f\n", i / (float)num_vals, diff);
-		//	printf("%f: %f\n", (float)i, sqrt);
-		//}
-		for (int i = -num_vals; i <= num_vals; i++)
-		{
-			float fscAsin = fsc_asinf(i / (float)num_vals);// *57.29578f;
-			float realAsin = asinf(i / (float)num_vals);// *57.29578f;
-			float diff = fscAsin - realAsin;
-			printf("%f, diff: %f\n", i / (float)num_vals, diff);
-			//printf("%f, %f, %f\n", i / (float)num_vals, fscAsin, realAsin);
-		}
-		//for (int i = -num_vals; i <= num_vals; i++)
-		//{
-		//	float fscAtan = fsc_atan2f(i / (float)num_vals, 0.5f) * 57.29578f;
-		//	float realAtan = atan2f(i / (float)num_vals, 0.5f) * 57.29578f;
-		//	float diff = fscAtan - realAtan;
-		//	//printf("%f, diff: %f\n", i / (float)num_vals, diff);
-		//	printf("%f, %f, %f\n", i / (float)num_vals, fscAtan, realAtan);
-		//}
+    uint8_t lamps = 0b00000001; 
+    rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
+    uint8_t numDTCs = 2;
+    uint8_t encMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
+    uint8_t numEncMsgs;
+    
+
+    SerializeDTCMessages(lamps, listDTCs, numDTCs, encMessages, &numEncMsgs);
+    for (int i = 0; i < MAX_NUM_ENC_DTC_MSGS; i++)
+    {
+      printf("Enc. Msg %d: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
+    }
+
+    uint8_t lamps_1;
+    rbr_isobus_dtc_ts listDTCs_1[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
+    uint8_t numDTCs_1 = 2;
+    //uint8_t encMessages_1[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
+    //uint8_t numEncMsgs_1;
+
+    ParseDTCMessages(&lamps_1, encMessages, numEncMsgs, listDTCs_1, &numDTCs_1);
+    for (int i = 0; i < MAX_NUM_ENC_DTC_MSGS; i++)
+    {
+      printf("Dec. Msg %d: spn: %d fmi: %d\n", i, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
+    }
 		while (true)
 		{
 		}
 		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
 		{
-
-			//getBoolFromCanTelegram(telegram, sizeOfTelegram, &trueFalse, byte, bit, length);
-			//getIntFromCanTelegram(telegram, sizeOfTelegram, &output, testSPN);
-			//printf("trueFalse: %s\n", trueFalse ? "true" : "False");
-			/*
-			escape = 0;
-			hold = 0;
-			printf("escape: %d\n", escape);
-			printf("!escape: %d\n", !escape);
-			printf("hold: %d\n", hold);
-			printf("!hold: %d\n", !hold);
-			printf("escape & hold: %d\n", escape & hold);
-			printf("escape & !hold: %d\n", escape & !hold);
-			printf("escape && hold: %d\n", escape && hold);
-			printf("escape && !hold: %d\n", escape && !hold);
-			printf("~~~~~~~~~~~\n");
-			escape = 0;
-			hold = 1;
-			printf("escape: %d\n", escape);
-			printf("!escape: %d\n", !escape);
-			printf("hold: %d\n", hold);
-			printf("!hold: %d\n", !hold);
-			printf("escape & hold: %d\n", escape & hold);
-			printf("escape & !hold: %d\n", escape & !hold);
-			printf("escape && hold: %d\n", escape && hold);
-			printf("escape && !hold: %d\n", escape && !hold);
-			printf("~~~~~~~~~~~\n");
-			escape = 1;
-			hold = 0;
-			printf("escape: %d\n", escape);
-			printf("!escape: %d\n", !escape);
-			printf("hold: %d\n", hold);
-			printf("!hold: %d\n", !hold);
-			printf("escape & hold: %d\n", escape & hold);
-			printf("escape & !hold: %d\n", escape & !hold);
-			printf("escape && hold: %d\n", escape && hold);
-			printf("escape && !hold: %d\n", escape && !hold);
-			printf("~~~~~~~~~~~\n");
-			escape = 1;
-			hold = 1;
-			printf("escape: %d\n", escape);
-			printf("!escape: %d\n", !escape);
-			printf("hold: %d\n", hold);
-			printf("!hold: %d\n", !hold);
-			printf("escape & hold: %d\n", escape & hold);
-			printf("escape & !hold: %d\n", escape & !hold);
-			printf("escape && hold: %d\n", escape && hold);
-			printf("escape && !hold: %d\n", escape && !hold);
-			printf("~~~~~~~~~~~\n");
-			escape = 2;
-			hold = 0;
-			printf("escape: %d\n", escape);
-			printf("!escape: %d\n", !escape);
-			printf("hold: %d\n", hold);
-			printf("!hold: %d\n", !hold);
-			printf("escape & hold: %d\n", escape & hold);
-			printf("escape & !hold: %d\n", escape & !hold);
-			printf("escape && hold: %d\n", escape && hold);
-			printf("escape && !hold: %d\n", escape && !hold);
-			printf("~~~~~~~~~~~\n");
-			escape = 0;
-			hold = 2;
-			printf("escape: %d\n", escape);
-			printf("!escape: %d\n", !escape);
-			printf("hold: %d\n", hold);
-			printf("!hold: %d\n", !hold);
-			printf("escape & hold: %d\n", escape & hold);
-			printf("escape & !hold: %d\n", escape & !hold);
-			printf("escape && hold: %d\n", escape && hold);
-			printf("escape && !hold: %d\n", escape && !hold);
-			printf("~~~~~~~~~~~\n");
-			return(0);
-			//if (telegram[testSPN.byte] == 0)
-			//{
-				//telegram[byte] = 1;
-			//}
-			//else
-			//{
-				//telegram[byte] = 0;
-			//}
-			*/
 		}
 	}
 	return 0;
