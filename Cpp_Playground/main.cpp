@@ -7,9 +7,9 @@
 
 typedef struct
 {
-	uint8_t byte;
-	uint8_t bit;
-	uint8_t len;
+  uint8_t byte;
+  uint8_t bit;
+  uint8_t len;
 } SPN_Config;
 
 long long epoch();
@@ -40,67 +40,70 @@ auto startTime = std::chrono::steady_clock::now(); //steady clock is great for t
 
 float invSqrt(float x)
 {
-	float halfx = 0.5f * x;
-	union
-	{
-		float f;
-		long i;
-	} conv = { x };
-	conv.i = 0x5f3759df - (conv.i >> 1);
-	conv.f *= 1.5f - (halfx * conv.f * conv.f);
-	conv.f *= 1.5f - (halfx * conv.f * conv.f);
-	return conv.f;
+  float halfx = 0.5f * x;
+  union
+  {
+    float f;
+    long i;
+  } conv = { x };
+  conv.i = 0x5f3759df - (conv.i >> 1);
+  conv.f *= 1.5f - (halfx * conv.f * conv.f);
+  conv.f *= 1.5f - (halfx * conv.f * conv.f);
+  return conv.f;
 }
 
 float fsc_sqrt(float x)
 {
-	return (1.0f / invSqrt(x)); // This is probably the fastest way to approximate this...
+  return (1.0f / invSqrt(x)); // This is probably the fastest way to approximate this...
 }
 
 
 float fsc_asinf(float x)
 {
-	// https://developer.download.nvidia.com/cg/asin.html
-	float negate = (x < 0) ? -1.0f : 1.0f;
-	x = abs(x);
-	float ret = -0.0187293;
-	ret *= x;
-	ret += 0.0742610;
-	ret *= x;
-	ret -= 0.2121144;
-	ret *= x;
-	ret += 1.5707288;
-	ret = PI_2 - sqrt(1.0 - x) * ret;
-	return ret /*- 2 */* negate /** ret*/;
+  // https://developer.download.nvidia.com/cg/asin.html
+  float negate = (x < 0) ? -1.0f : 1.0f;
+  x = abs(x);
+  float ret = -0.0187293;
+  ret *= x;
+  ret += 0.0742610;
+  ret *= x;
+  ret -= 0.2121144;
+  ret *= x;
+  ret += 1.5707288;
+  ret = PI_2 - sqrt(1.0 - x) * ret;
+  return ret /*- 2 */ * negate /** ret*/;
 }
 
 float fsc_atan2f(float y, float x)
 {
-	// http://pubs.opengroup.org/onlinepubs/009695399/functions/atan2.html
-	// https://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization/
-	const float ONEQTR_PI = PI / 4.0;
-	const float THRQTR_PI = 3.0 * PI / 4.0;
-	float r, angle;
-	float abs_y = fabs(y) + 1e-10f; // kludge to prevent 0/0 condition
-	if (x < 0.0f)
-	{
-		r = (x + abs_y) / (abs_y - x);
-		angle = THRQTR_PI;
-	}
-	else
-	{
-		r = (x - abs_y) / (x + abs_y);
-		angle = ONEQTR_PI;
-	}
-	angle += (0.1963f * r * r - 0.9817f) * r;
-	if (y < 0.0f)
-		return (-angle); // negate if in quad III or IV
-	else
-		return (angle);
+  // http://pubs.opengroup.org/onlinepubs/009695399/functions/atan2.html
+  // https://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization/
+  const float ONEQTR_PI = PI / 4.0;
+  const float THRQTR_PI = 3.0 * PI / 4.0;
+  float r, angle;
+  float abs_y = fabs(y) + 1e-10f; // kludge to prevent 0/0 condition
+  if (x < 0.0f)
+  {
+    r = (x + abs_y) / (abs_y - x);
+    angle = THRQTR_PI;
+  }
+  else
+  {
+    r = (x - abs_y) / (x + abs_y);
+    angle = ONEQTR_PI;
+  }
+  angle += (0.1963f * r * r - 0.9817f) * r;
+  if (y < 0.0f)
+    return (-angle); // negate if in quad III or IV
+  else
+    return (angle);
 }
 
 #define SHIFT_8b 8
 
+
+#define SHIFT_MSG_NUM 56
+#define SHIFT_TOT_MSG 54
 #define SHIFT_DTC_LAMPS 50
 #define SHIFT_DTC_MSG_1 40
 #define SHIFT_DTC_MSG_2 30
@@ -112,6 +115,7 @@ float fsc_atan2f(float y, float x)
 #define MAX_NUM_ENC_DTC_MSGS 4
 #define MAX_NUM_DTCS_PER_ENC_MSG 5
 #define MAX_NUM_BYTES_PER_DTC_MSG 8
+#define MASK_2LSB 0x03
 #define MASK_4LSB 0x0F
 #define MASK_8LSB 0xFF
 #define MASK_10LSB 0x3FF
@@ -120,9 +124,9 @@ float fsc_atan2f(float y, float x)
 
 typedef struct rbr_isobus_dtc_t
 {
-	uint32_t spn_u32;
-	uint8_t  fmi_u8;
-	uint8_t  occ_u8;
+  uint32_t spn_u32;
+  uint8_t  fmi_u8;
+  uint8_t  occ_u8;
 } rbr_isobus_dtc_ts;
 
 enum DTC_Codes
@@ -512,38 +516,40 @@ int16_t GetIndexOfDM1(uint32_t spn, uint8_t fmi, rbr_isobus_dtc_ts dtcs[], uint1
 
 void EncodeDTCMessages(rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16])
 {
-	int i;
-	for (i = 0; i < RBR_ISOBUS_DTC_LIST_SIZE_DU16; i++)
-	{
+  int i;
+  for (i = 0; i < RBR_ISOBUS_DTC_LIST_SIZE_DU16; i++)
+  {
     int16_t output = GetIndexOfDM1(listDTCs[i].spn_u32, listDTCs[i].fmi_u8, dtc_info_array, NUM_DTC_CODES);
-    if (output != -1)
-      encDTCs[i] = output;
-	}
+    //if (output != -1)
+    encDTCs[i] = output;
+  }
 }
 
 void SerializeDTCMessages(uint8_t lamps, rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], uint8_t numDTCs, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG], uint8_t* numEncodedMessages)
 {
   uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { 0 };
-	EncodeDTCMessages(listDTCs, encDTCs);
+  EncodeDTCMessages(listDTCs, encDTCs);
 
-	uint64_t encMsg;
-	*numEncodedMessages = 1 + (numDTCs / MAX_NUM_DTCS_PER_ENC_MSG); // up to 20 DTCs can be stored from bds, so send up to 4 messages of 5 DTCs each.
-	int i;
-	for (i = 0; i < MAX_NUM_DTCS_PER_ENC_MSG; i++)
-	{
-		encMsg = 0; // start off clean
-		encMsg |= (uint64_t)(lamps & MASK_4LSB) << SHIFT_DTC_LAMPS;                                      // lamps is only 4 last bits
-		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 0] & MASK_10LSB) << SHIFT_DTC_MSG_1; // listDTCs are 10bit numbers
-		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 1] & MASK_10LSB) << SHIFT_DTC_MSG_2;
-		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 2] & MASK_10LSB) << SHIFT_DTC_MSG_3;
-		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 3] & MASK_10LSB) << SHIFT_DTC_MSG_4;
-		encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 4] & MASK_10LSB) << SHIFT_DTC_MSG_5;
-		int j;
-		for (j = 0; j < MAX_NUM_BYTES_PER_DTC_MSG; j++)
-		{
-			encodedMessages[i][j] = (encMsg >> (SHIFT_8b * j)) & MASK_8LSB; // Converting to a 64-bit num makes parsing easier
-		}
-	}
+  uint64_t encMsg;
+  *numEncodedMessages = 1 + (numDTCs / MAX_NUM_DTCS_PER_ENC_MSG); // up to 20 DTCs can be stored from bds, so send up to 4 messages of 5 DTCs each.
+  int i;
+  for (i = 0; i < MAX_NUM_DTCS_PER_ENC_MSG; i++)
+  {
+    encMsg = 0; // start off clean
+    encMsg |= (uint64_t)(i & MASK_2LSB) << SHIFT_MSG_NUM; 
+    encMsg |= (uint64_t)(*numEncodedMessages & MASK_2LSB) << SHIFT_TOT_MSG;
+    encMsg |= (uint64_t)(lamps & MASK_4LSB) << SHIFT_DTC_LAMPS; // lamps is only 4 last bits                 
+    encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 0] & MASK_10LSB) << SHIFT_DTC_MSG_1; // listDTCs are 10bit numbers
+    encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 1] & MASK_10LSB) << SHIFT_DTC_MSG_2;
+    encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 2] & MASK_10LSB) << SHIFT_DTC_MSG_3;
+    encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 3] & MASK_10LSB) << SHIFT_DTC_MSG_4;
+    encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 4] & MASK_10LSB) << SHIFT_DTC_MSG_5;
+    int j;
+    for (j = 0; j < MAX_NUM_BYTES_PER_DTC_MSG; j++)
+    {
+      encodedMessages[i][j] = (encMsg >> (SHIFT_8b * j)) & MASK_8LSB; // Converting to a 64-bit num makes parsing easier
+    }
+  }
 }
 
 void DecodeDTCMessages(uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], rbr_isobus_dtc_ts decDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16])
@@ -551,7 +557,8 @@ void DecodeDTCMessages(uint16_t encDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16], rbr_isob
   int i;
   for (i = 0; i < RBR_ISOBUS_DTC_LIST_SIZE_DU16; i++)
   {
-    decDTCs[i] = dtc_info_array[encDTCs[i]];
+    if (encDTCs[i] != (uint16_t)(-1))
+      decDTCs[i] = dtc_info_array[encDTCs[i]];
   }
 }
 
@@ -566,8 +573,9 @@ void ParseDTCMessages(uint8_t* lamps, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MS
     int j;
     for (j = 0; j < MAX_NUM_BYTES_PER_DTC_MSG; j++)
     {
-      encMsg |= encodedMessages[i][j] << (SHIFT_8b * j); // Converting to a 64-bit num makes parsing easier
+      encMsg |= (uint64_t)encodedMessages[i][j] << (SHIFT_8b * j); // Converting to a 64-bit num makes parsing easier
     }
+    *numDTCs |= (uint64_t)(i & MASK_2LSB) << SHIFT_MSG_NUM;
     *lamps = (encMsg >> SHIFT_DTC_LAMPS) & MASK_4LSB;
     encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 0] = (encMsg >> SHIFT_DTC_MSG_1) & MASK_10LSB;
     encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 1] = (encMsg >> SHIFT_DTC_MSG_2) & MASK_10LSB;
@@ -582,26 +590,26 @@ void ParseDTCMessages(uint8_t* lamps, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MS
 
 int main()
 {
-	for (;;)
-	{
-		static uint64_t prevPrintTime = 0;
-		uint64_t printTimeout = 2000;
-		uint8_t count = 0;
+  for (;;)
+  {
+    static uint64_t prevPrintTime = 0;
+    uint64_t printTimeout = 2000;
+    uint8_t count = 0;
 
-		//int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
-		//int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
+    //int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
+    //int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
 
-    uint8_t lamps = 0b00000001; 
+    uint8_t lamps = 0b00000001;
     rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
     uint8_t numDTCs = 2;
     uint8_t encMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
     uint8_t numEncMsgs;
-    
+
 
     SerializeDTCMessages(lamps, listDTCs, numDTCs, encMessages, &numEncMsgs);
-    for (int i = 0; i < MAX_NUM_ENC_DTC_MSGS; i++)
+    for (int i = 0; i < numEncMsgs; i++)
     {
-      printf("Enc. Msg %d: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
+      printf("Enc. Msg %d: numEncMsgs: %d data: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, numEncMsgs, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
     }
 
     uint8_t lamps_1;
@@ -611,75 +619,75 @@ int main()
     //uint8_t numEncMsgs_1;
 
     ParseDTCMessages(&lamps_1, encMessages, numEncMsgs, listDTCs_1, &numDTCs_1);
-    for (int i = 0; i < MAX_NUM_ENC_DTC_MSGS; i++)
+    for (int i = 0; i < numDTCs_1; i++)
     {
-      printf("Dec. Msg %d: spn: %d fmi: %d\n", i, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
+      printf("Dec. Msg %d: numDTCs: %d spn: %d fmi: %d\n", i, numDTCs_1, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
     }
-		while (true)
-		{
-		}
-		if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
-		{
-		}
-	}
-	return 0;
+    while (true)
+    {
+    }
+    if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
+    {
+    }
+  }
+  return 0;
 }
 
 
 int getBoolFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, bool* output, SPN_Config spnConfig)
 {
-	if ((8 * spnConfig.byte + spnConfig.bit + spnConfig.len) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
-		return -1;	// Return -1 if we overrun the array?
+  if ((8 * spnConfig.byte + spnConfig.bit + spnConfig.len) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
+    return -1;	// Return -1 if we overrun the array?
 
-	int mask = 0;
-	int i = 0;
-	for (i; i < spnConfig.len; i++)
-	{
-		mask |= (1 << i);
-	}
-	int val = (telegram[spnConfig.byte] >> spnConfig.bit) & mask;
-	if (val)
-		*output = true;
-	else
-		*output = false;
-	return 0;
+  int mask = 0;
+  int i = 0;
+  for (i; i < spnConfig.len; i++)
+  {
+    mask |= (1 << i);
+  }
+  int val = (telegram[spnConfig.byte] >> spnConfig.bit) & mask;
+  if (val)
+    *output = true;
+  else
+    *output = false;
+  return 0;
 }
 
 int getIntFromCanTelegram(uint8_t telegram[], uint8_t sizeOfTelegram, int* output, SPN_Config spnConfig)
 {
-	if ((8 * spnConfig.byte + spnConfig.bit + spnConfig.len) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
-		return -1;	// Return -1 if we overrun the array?
+  if ((8 * spnConfig.byte + spnConfig.bit + spnConfig.len) > (sizeOfTelegram * 8)) // Check if we are asking for something outside of telegram's allocation
+    return -1;	// Return -1 if we overrun the array?
 
-	int mask = 0;
-	int i = 0;
-	for (i; i < spnConfig.len; i++)
-	{
-		mask |= (1 << i);
-	}
-	int val = 0;
-	uint8_t numBytes = 1 + (spnConfig.bit + spnConfig.len) / 8;
-	i = 0;
-	for (i; i < numBytes; i++)
-	{
-		val |= telegram[spnConfig.byte + i] << (8 * i);
-	}
-	*output = (val >> spnConfig.bit) & mask;
-	return 0;
+  int mask = 0;
+  int i = 0;
+  for (i; i < spnConfig.len; i++)
+  {
+    mask |= (1 << i);
+  }
+  int val = 0;
+  uint8_t numBytes = 1 + (spnConfig.bit + spnConfig.len) / 8;
+  i = 0;
+  for (i; i < numBytes; i++)
+  {
+    val |= telegram[spnConfig.byte + i] << (8 * i);
+  }
+  *output = (val >> spnConfig.bit) & mask;
+  return 0;
 }
 
 
 bool testRandom(bool noWait, uint8_t* count)
 {
-	bool success = false;
-	do
-	{
-		*count += 1;
-		if (random(5) == 5)
-		{
-			success = true;
-		}
-	} while (noWait && !success);
-	return success;
+  bool success = false;
+  do
+  {
+    *count += 1;
+    if (random(5) == 5)
+    {
+      success = true;
+    }
+  } while (noWait && !success);
+  return success;
 }
 
 
@@ -692,7 +700,7 @@ bool testRandom(bool noWait, uint8_t* count)
  */
 int64_t random(void)
 {
-	return random(0x7FFFFFFFFFFFFFFF);
+  return random(0x7FFFFFFFFFFFFFFF);
 }
 
 /**
@@ -705,31 +713,31 @@ int64_t random(void)
  */
 int64_t random(int64_t max)
 {
-	int64_t output;
-	bool trigger = true;
-	if (max == 0)
-	{
-		return 0;
-	}
-	if (random(&trigger, &output, true))
-	{
-		if (max == -1)	//	Edge conditions...
-		{// Do nothing
-		}
-		else if (max != 0x7FFFFFFFFFFFFFFF)	//	Be inclusive on max value
-		{
-			max++;
-		}
-		return output % (max);
-	}
-	return 0;
+  int64_t output;
+  bool trigger = true;
+  if (max == 0)
+  {
+    return 0;
+  }
+  if (random(&trigger, &output, true))
+  {
+    if (max == -1)	//	Edge conditions...
+    {// Do nothing
+    }
+    else if (max != 0x7FFFFFFFFFFFFFFF)	//	Be inclusive on max value
+    {
+      max++;
+    }
+    return output % (max);
+  }
+  return 0;
 }
 
 /**
- * @brief Generates a 64-bit random number between `min` and `max`. NOTE: difference between 
-			`max` and `min` must be smaller than `0x7FFFFFFFFFFFFFFF`!! This is also slower
-			compared to `random(*trigger, *output)` since it waits for the RNG to 
-			successfully generate. 
+ * @brief Generates a 64-bit random number between `min` and `max`. NOTE: difference between
+      `max` and `min` must be smaller than `0x7FFFFFFFFFFFFFFF`!! This is also slower
+      compared to `random(*trigger, *output)` since it waits for the RNG to
+      successfully generate.
  *
  * @param min Minimum bound for output
  * @param max Maximum bound for output
@@ -737,11 +745,11 @@ int64_t random(int64_t max)
  */
 int64_t random(int64_t min, int64_t max)
 {
-	int64_t minVal = (min < max) ? min : max;	//	Find min/max values incase someone gave us parameters in the wrong order
-	int64_t maxVal = (min > max) ? min : max;
-	printf("minVal = %lld, maxVal = %lld\n", minVal, maxVal);
-	int64_t diff = maxVal - minVal;
-	return random(diff) + minVal;
+  int64_t minVal = (min < max) ? min : max;	//	Find min/max values incase someone gave us parameters in the wrong order
+  int64_t maxVal = (min > max) ? min : max;
+  printf("minVal = %lld, maxVal = %lld\n", minVal, maxVal);
+  int64_t diff = maxVal - minVal;
+  return random(diff) + minVal;
 }
 
 /**
@@ -755,35 +763,35 @@ int64_t random(int64_t min, int64_t max)
 bool random(bool* trigger, int64_t* output, bool noWait)
 {
 #define RND_SIZE_DU16 8 // global data definitions
-	bool success = false;
-	uint8_t rnd_au8[RND_SIZE_DU16]; // array for storage of random
-	// static bool getRandom_l = FALSE;
-	uint16_t result_u16;
-	if (*trigger != false) // check for request to generate a new random
-	{
-		*output = ((int64_t)rand() << 32) | rand();
-		*trigger = false;
-		success = true;
-	}
-	return success;
+  bool success = false;
+  uint8_t rnd_au8[RND_SIZE_DU16]; // array for storage of random
+  // static bool getRandom_l = FALSE;
+  uint16_t result_u16;
+  if (*trigger != false) // check for request to generate a new random
+  {
+    *output = ((int64_t)rand() << 32) | rand();
+    *trigger = false;
+    success = true;
+  }
+  return success;
 }
 
 
 double scale(double input, double minIn, double maxIn, double minOut, double maxOut, bool clipOutput)
 {
-	double slope = ((maxOut - minOut) / (maxIn - minIn));
-	double intercept = (minOut - (minIn * slope));
-	double output = ((slope * input) + intercept);
-	if (clipOutput) //  DON'T ALLOW OUTPUT OUTSIDE RANGE
-	{
-		double minVal = (minOut < maxOut) ? minOut : maxOut;	//	FIND MIN/MAX VALUES - INCASE WE ARE INVERSELY SCALING
-		double maxVal = (minOut > maxOut) ? minOut : maxOut;
-		if (output > maxVal)
-			output = maxVal;
-		if (output < minVal)
-			output = minVal;
-	}
-	return output;
+  double slope = ((maxOut - minOut) / (maxIn - minIn));
+  double intercept = (minOut - (minIn * slope));
+  double output = ((slope * input) + intercept);
+  if (clipOutput) //  DON'T ALLOW OUTPUT OUTSIDE RANGE
+  {
+    double minVal = (minOut < maxOut) ? minOut : maxOut;	//	FIND MIN/MAX VALUES - INCASE WE ARE INVERSELY SCALING
+    double maxVal = (minOut > maxOut) ? minOut : maxOut;
+    if (output > maxVal)
+      output = maxVal;
+    if (output < minVal)
+      output = minVal;
+  }
+  return output;
 }
 
 
@@ -801,84 +809,84 @@ double scale(double input, double minIn, double maxIn, double minOut, double max
 //---------------------------------------------------------------------------------------------------------
 bool timerMillis(uint64_t* prevTime, uint64_t timeout, bool resetPrevTime, uint64_t current_time, bool useFakeMillis)
 {
-	if (!useFakeMillis)	   //  IF WE DON'T SAY TO USE OUR GIVEN MILLIS, LET'S CHECK MILLIS OURSELVES!
-	{
-		current_time = millis();
-	}
-	if ((uint64_t)(current_time - *prevTime) >= timeout)	  // typecast to create a massive positive number when current_time rolls over to 0
-	{
-		if (resetPrevTime)
-		{
-			*prevTime = millis();
-		}
-		return 1;
-	}
-	return 0;
+  if (!useFakeMillis)	   //  IF WE DON'T SAY TO USE OUR GIVEN MILLIS, LET'S CHECK MILLIS OURSELVES!
+  {
+    current_time = millis();
+  }
+  if ((uint64_t)(current_time - *prevTime) >= timeout)	  // typecast to create a massive positive number when current_time rolls over to 0
+  {
+    if (resetPrevTime)
+    {
+      *prevTime = millis();
+    }
+    return 1;
+  }
+  return 0;
 }
 
 long long epoch()
 {
-	long long milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	return milliseconds_since_epoch;
+  long long milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  return milliseconds_since_epoch;
 }
 
 long long epochMillis()
 {
-	//returning epoch from 1970
-	long long milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	return milliseconds_since_epoch;
+  //returning epoch from 1970
+  long long milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  return milliseconds_since_epoch;
 }
 
 //return a 64 bit millis() since the program started. This makes the output very similar to (not) Arduino's hours() function
 uint64_t hours()
 {
-	auto now = std::chrono::steady_clock::now();
-	auto now_ms = std::chrono::duration_cast<std::chrono::hours>(now - startTime).count();
-	uint64_t ms = (uint64_t)now_ms;
-	return ms;
+  auto now = std::chrono::steady_clock::now();
+  auto now_ms = std::chrono::duration_cast<std::chrono::hours>(now - startTime).count();
+  uint64_t ms = (uint64_t)now_ms;
+  return ms;
 }
 
 //return a 64 bit millis() since the program started. This makes the output very similar to (not) Arduino's minutes() function
 uint64_t minutes()
 {
-	auto now = std::chrono::steady_clock::now();
-	auto now_ms = std::chrono::duration_cast<std::chrono::minutes>(now - startTime).count();
-	uint64_t ms = (uint64_t)now_ms;
-	return ms;
+  auto now = std::chrono::steady_clock::now();
+  auto now_ms = std::chrono::duration_cast<std::chrono::minutes>(now - startTime).count();
+  uint64_t ms = (uint64_t)now_ms;
+  return ms;
 }
 
 //return a 64 bit millis() since the program started. This makes the output very similar to (not) Arduino's seconds() function
 uint64_t seconds()
 {
-	auto now = std::chrono::steady_clock::now();
-	auto now_ms = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
-	uint64_t ms = (uint64_t)now_ms;
-	return ms;
+  auto now = std::chrono::steady_clock::now();
+  auto now_ms = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+  uint64_t ms = (uint64_t)now_ms;
+  return ms;
 }
 
 //return a 64 bit millis() since the program started. This makes the output very similar to Arduino's millis() function
 uint64_t millis()
 {
-	auto now = std::chrono::steady_clock::now();
-	auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-	uint64_t ms = (uint64_t)now_ms;
-	return ms;
+  auto now = std::chrono::steady_clock::now();
+  auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+  uint64_t ms = (uint64_t)now_ms;
+  return ms;
 }
 
 //return a 64 bit micros() since the program started. This makes the output very similar to Arduino's micros() function
 uint64_t micros()
 {
-	auto now = std::chrono::steady_clock::now();
-	auto now_us = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime).count();
-	uint64_t us = (uint64_t)now_us;
-	return us;
+  auto now = std::chrono::steady_clock::now();
+  auto now_us = std::chrono::duration_cast<std::chrono::microseconds>(now - startTime).count();
+  uint64_t us = (uint64_t)now_us;
+  return us;
 }
 
 //return a 64 bit nanos() since the program started. This makes the output very similar to (not) Arduino's nanos() function
 uint64_t nanos()
 {
-	auto now = std::chrono::steady_clock::now();
-	auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now - startTime).count();
-	uint64_t ns = (uint64_t)now_ns;
-	return  ns;
+  auto now = std::chrono::steady_clock::now();
+  auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now - startTime).count();
+  uint64_t ns = (uint64_t)now_ns;
+  return  ns;
 }
