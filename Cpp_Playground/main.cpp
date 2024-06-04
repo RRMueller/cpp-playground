@@ -536,7 +536,7 @@ void SerializeDTCMessages(uint8_t lamps, rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_D
   for (i = 0; i < MAX_NUM_DTCS_PER_ENC_MSG; i++)
   {
     encMsg = 0; // start off clean
-    encMsg |= (uint64_t)(i & MASK_2LSB) << SHIFT_MSG_NUM; 
+    encMsg |= (uint64_t)(i & MASK_2LSB) << SHIFT_MSG_NUM;
     encMsg |= (uint64_t)(*numEncodedMessages & MASK_2LSB) << SHIFT_TOT_MSG;
     encMsg |= (uint64_t)(lamps & MASK_4LSB) << SHIFT_DTC_LAMPS; // lamps is only 4 last bits                 
     encMsg |= (uint64_t)(encDTCs[i * MAX_NUM_DTCS_PER_ENC_MSG + 0] & MASK_10LSB) << SHIFT_DTC_MSG_1; // listDTCs are 10bit numbers
@@ -587,6 +587,42 @@ void ParseDTCMessages(uint8_t* lamps, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MS
 }
 
 
+void SetMRFRMRelay(int byte, int bit, int spnInfoIndex, int state)
+{
+#define BITS_PER_BYTE 8
+  uint8_t data[8] = { 0xFF,0xAA,0,0,0,0,0,0 };
+#define MASK_2LSB 0x03
+  uint8_t byteIndex = byte - 1; // These values start from 1, not 0
+  uint8_t bitIndex = bit - 1;
+  uint8_t mask = MASK_2LSB;
+
+  printf("mask1: %02X\n", mask);
+  uint8_t shift = (BITS_PER_BYTE - bit) - 1;
+  mask = mask << shift;
+
+  printf("mask2: %02X\n", mask);
+  mask = ~mask;
+
+  printf("mask3: %02X\n", mask);
+
+  uint8_t originalVal = data[byteIndex];
+
+  uint8_t oldValue = data[byteIndex] & mask; // remove what we are changing from the current state
+  uint8_t newValue = state << shift; // shift the 2-bit state into position
+  data[byteIndex] = oldValue | newValue; // OR the new state with the masked oldValue
+
+  printf("byteIndex: %02X\n", byteIndex);
+  printf("bitIndex: %02X\n", bitIndex);
+  printf("mask: %02X\n", mask);
+  printf("shift: %d\n", shift);
+  printf("original val: %02X\n", originalVal);
+  printf("masked old val: %02X\n", oldValue);
+  printf("masked new val: %02X\n", newValue);
+  printf("new val: %02X\n", data[byteIndex]);
+  printf("~~~~~~~~~~~~\n");
+}
+
+
 
 int main()
 {
@@ -605,24 +641,59 @@ int main()
     uint8_t encMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
     uint8_t numEncMsgs;
 
+    int byte = 1;
+    int bit = 1;
+    int state = 0b00;
+    SetMRFRMRelay(byte, bit, 0, state);
+
+    byte = 2;
+    bit = 1;
+    state = 0b00;
+    SetMRFRMRelay(byte, bit, 0, state);
+
+    byte = 1;
+    bit = 3;
+    state = 0b00;
+    SetMRFRMRelay(byte, bit, 0, state);
+
+    byte = 1;
+    bit = 7;
+    state = 0b00;
+    SetMRFRMRelay(byte, bit, 0, state);
+
+    //float testFloat = 1;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+    //testFloat = 2;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+    //testFloat = 5;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+    //testFloat = 9;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+    //testFloat = 10;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+    //testFloat = 100;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+    //testFloat = 10000;
+    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
+
 
     SerializeDTCMessages(lamps, listDTCs, numDTCs, encMessages, &numEncMsgs);
-    for (int i = 0; i < numEncMsgs; i++)
-    {
-      printf("Enc. Msg %d: numEncMsgs: %d data: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, numEncMsgs, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
-    }
+    //for (int i = 0; i < numEncMsgs; i++)
+    //{
+    //  printf("Enc. Msg %d: numEncMsgs: %d data: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, numEncMsgs, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
+    //}
 
     uint8_t lamps_1;
-    rbr_isobus_dtc_ts listDTCs_1[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
+    rbr_isobus_dtc_ts listDTCs_1[RBR_ISOBUS_DTC_LIST_SIZE_DU16];
     uint8_t numDTCs_1 = 2;
     //uint8_t encMessages_1[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
     //uint8_t numEncMsgs_1;
 
     ParseDTCMessages(&lamps_1, encMessages, numEncMsgs, listDTCs_1, &numDTCs_1);
-    for (int i = 0; i < numDTCs_1; i++)
-    {
-      printf("Dec. Msg %d: numDTCs: %d spn: %d fmi: %d\n", i, numDTCs_1, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
-    }
+    //for (int i = 0; i < numDTCs_1; i++)
+    //{
+    //  printf("Dec. Msg %d: numDTCs: %d spn: %d fmi: %d\n", i, numDTCs_1, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
+    //}
     while (true)
     {
     }
