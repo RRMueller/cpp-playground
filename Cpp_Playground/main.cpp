@@ -587,42 +587,135 @@ void ParseDTCMessages(uint8_t* lamps, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MS
 }
 
 
-void SetMRFRMRelay(int byte, int bit, int spnInfoIndex, int state)
+//void SetMRFRMRelay(int byte, int bit, int spnInfoIndex, int state)
+//{
+//#define BITS_PER_BYTE 8
+//  uint8_t data[8] = { 0xFF,0xAA,0,0,0,0,0,0 };
+//#define MASK_2LSB 0x03
+//  uint8_t byteIndex = byte - 1; // These values start from 1, not 0
+//  uint8_t bitIndex = bit - 1;
+//  uint8_t mask = MASK_2LSB;
+//
+//  printf("mask1: %02X\n", mask);
+//  uint8_t shift = (BITS_PER_BYTE - bit) - 1;
+//  mask = mask << shift;
+//
+//  printf("mask2: %02X\n", mask);
+//  mask = ~mask;
+//
+//  printf("mask3: %02X\n", mask);
+//
+//  uint8_t originalVal = data[byteIndex];
+//
+//  uint8_t oldValue = data[byteIndex] & mask; // remove what we are changing from the current state
+//  uint8_t newValue = state << shift; // shift the 2-bit state into position
+//  data[byteIndex] = oldValue | newValue; // OR the new state with the masked oldValue
+//
+//  printf("byteIndex: %02X\n", byteIndex);
+//  printf("bitIndex: %02X\n", bitIndex);
+//  printf("mask: %02X\n", mask);
+//  printf("shift: %d\n", shift);
+//  printf("original val: %02X\n", originalVal);
+//  printf("masked old val: %02X\n", oldValue);
+//  printf("masked new val: %02X\n", newValue);
+//  printf("new val: %02X\n", data[byteIndex]);
+//  printf("~~~~~~~~~~~~\n");
+//}
+
+typedef enum
 {
+  TYPE_INT,
+  TYPE_FLOAT,
+  NUM_VAR_TYPES // Special value to represent the total number of DTC codes
+} var_type;
+
+typedef struct
+{
+  uint32_t spnNum;
+  uint8_t byte; // we start counting this at 1 instead of 0, since non-programmers made the J1939 standard...
+  uint8_t bit;  // we start counting this at 1 instead of 0, since non-programmers made the J1939 standard...
+  uint8_t len;
+  float scaling;
+  int32_t offset;
+  var_type varType;
+} spn_info;
+
+#define MAX_NUM_SPNS 30
 #define BITS_PER_BYTE 8
-  uint8_t data[8] = { 0xFF,0xAA,0,0,0,0,0,0 };
-#define MASK_2LSB 0x03
-  uint8_t byteIndex = byte - 1; // These values start from 1, not 0
-  uint8_t bitIndex = bit - 1;
-  uint8_t mask = MASK_2LSB;
 
-  printf("mask1: %02X\n", mask);
-  uint8_t shift = (BITS_PER_BYTE - bit) - 1;
-  mask = mask << shift;
+typedef struct
+{
+  uint8_t instanceNum;
+  uint16_t boxNum;
+  uint32_t pgn;
+  uint8_t format; // BDS_CAN_STD_DU8 or BDS_CAN_EXD_DU8
+  uint8_t prio;
+  uint8_t src;
+  uint8_t dest;
+  uint16_t cycle;
+  uint16_t offset;
+  uint16_t timeout;
+  uint16_t startTimeout;
+  uint32_t lenMax;
+  uint8_t data[8];
+  spn_info spns[MAX_NUM_SPNS];
+} can_isobus_info;
 
-  printf("mask2: %02X\n", mask);
-  mask = ~mask;
+int ExtractValueFromCanTelegram(can_isobus_info messageData, int spnInfoIndex, uint64_t* output)
+{
+  uint8_t byteIndex = messageData.spns[spnInfoIndex].byte - 1;                                                              // These values start from 1, not 0
+  uint8_t bitIndex = messageData.spns[spnInfoIndex].bit - 1;                                                                // These values start from 1, not 0
+  if ((BITS_PER_BYTE * byteIndex + bitIndex + messageData.spns[spnInfoIndex].len) > (messageData.lenMax * BITS_PER_BYTE)) // Check if we are asking for something outside of telegram's allocation
+    return -1;                                                                                                            // Return FSC_ERR if we are going to overrun the array
 
-  printf("mask3: %02X\n", mask);
-
-  uint8_t originalVal = data[byteIndex];
-
-  uint8_t oldValue = data[byteIndex] & mask; // remove what we are changing from the current state
-  uint8_t newValue = state << shift; // shift the 2-bit state into position
-  data[byteIndex] = oldValue | newValue; // OR the new state with the masked oldValue
-
-  printf("byteIndex: %02X\n", byteIndex);
-  printf("bitIndex: %02X\n", bitIndex);
-  printf("mask: %02X\n", mask);
-  printf("shift: %d\n", shift);
-  printf("original val: %02X\n", originalVal);
-  printf("masked old val: %02X\n", oldValue);
-  printf("masked new val: %02X\n", newValue);
-  printf("new val: %02X\n", data[byteIndex]);
-  printf("~~~~~~~~~~~~\n");
+  uint64_t mask = 0;
+  int i = 0;
+  for (i; i < messageData.spns[spnInfoIndex].len; i++)
+  {
+    mask |= (1 << i);
+  }
+  uint64_t val = 0;
+  uint8_t numBytes = 1 + (bitIndex + messageData.spns[spnInfoIndex].len - 1) / BITS_PER_BYTE; // How many bytes does this information span?
+  i = 0;
+  for (i; i < numBytes; i++)
+  {
+    val |= messageData.data[byteIndex + i] << (BITS_PER_BYTE * i);
+  }
+  *output = (val >> bitIndex) & mask;
+  return 0;
 }
 
+typedef enum
+{
+  MM7_TX2_ROLL_RATE,
+  MM7_TX2_CLU_STAT,
+  MM7_TX2_ROLL_RATE_STAT,
+  MM7_TX2_CLU_DIAG,
+  MM7_TX2_AX,
+  MM7_TX2_MSG_CNT,
+  MM7_TX2_AX_STAT,
+  MM7_TX2_CRC,
+  MM7_TX2_NUM
+} PGN_MM7_TX2;
 
+can_isobus_info INFO_MM7_A_TX2 = {
+    .instanceNum = 1,
+    .boxNum = 11,
+    .format = 0,
+    .cycle = 0,
+    .offset = 0,
+    .timeout = 2500,
+    .startTimeout = 5000,
+    .lenMax = 8,
+    .spns = {
+        {.spnNum = 0, .byte = 1, .bit = 1, .len = 16, .scaling = 0.005, .offset = -0x8000, .varType = TYPE_FLOAT},
+        {.spnNum = 0, .byte = 3, .bit = 1, .len = 4, .scaling = 1, .offset = 0, .varType = TYPE_INT},
+        {.spnNum = 0, .byte = 3, .bit = 5, .len = 4, .scaling = 1, .offset = 0, .varType = TYPE_INT},
+        {.spnNum = 0, .byte = 4, .bit = 1, .len = 8, .scaling = 1, .offset = 0, .varType = TYPE_INT},
+        {.spnNum = 0, .byte = 5, .bit = 1, .len = 16, .scaling = 0.00125, .offset = -0x8000, .varType = TYPE_FLOAT},
+        {.spnNum = 0, .byte = 7, .bit = 1, .len = 4, .scaling = 1, .offset = 0, .varType = TYPE_INT},
+        {.spnNum = 0, .byte = 7, .bit = 5, .len = 4, .scaling = 1, .offset = 0, .varType = TYPE_INT},
+        {.spnNum = 0, .byte = 8, .bit = 1, .len = 8, .scaling = 1, .offset = 0, .varType = TYPE_INT}}};
 
 int main()
 {
@@ -632,68 +725,30 @@ int main()
     uint64_t printTimeout = 2000;
     uint8_t count = 0;
 
-    //int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
-    //int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
+    INFO_MM7_A_TX2.data[0] = 0xFC;
+    INFO_MM7_A_TX2.data[1] = 0x7F;
+    INFO_MM7_A_TX2.data[2] = 0x0B;
+    INFO_MM7_A_TX2.data[3] = 0x37;
+    INFO_MM7_A_TX2.data[4] = 0xD4;
+    INFO_MM7_A_TX2.data[5] = 0x81;
+    INFO_MM7_A_TX2.data[6] = 0x06;
+    INFO_MM7_A_TX2.data[7] = 0x96;
 
-    uint8_t lamps = 0b00000001;
-    rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
-    uint8_t numDTCs = 2;
-    uint8_t encMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
-    uint8_t numEncMsgs;
+    INFO_MM7_A_TX2.data[0] = 0x64;
+    INFO_MM7_A_TX2.data[1] = 0x5B;
+    INFO_MM7_A_TX2.data[2] = 0x07;
+    INFO_MM7_A_TX2.data[3] = 0x37;
+    INFO_MM7_A_TX2.data[4] = 0x59;
+    INFO_MM7_A_TX2.data[5] = 0x82;
+    INFO_MM7_A_TX2.data[6] = 0x0E;
+    INFO_MM7_A_TX2.data[7] = 0x8D;
+    // {0xfc, 0x7f, 0x0b, 0x37, 0xd4, 0x81, 0x06, 0x96};
+    uint64_t extractedValue = 0;
+    ExtractValueFromCanTelegram(INFO_MM7_A_TX2, MM7_TX2_ROLL_RATE, &extractedValue);
 
-    int byte = 1;
-    int bit = 1;
-    int state = 0b00;
-    SetMRFRMRelay(byte, bit, 0, state);
+    printf("rollrate Extracted: %d\n", extractedValue);
+    printf("rollrate actual:    %d\n", INFO_MM7_A_TX2.data[0] | (INFO_MM7_A_TX2.data[1] << 8));
 
-    byte = 2;
-    bit = 1;
-    state = 0b00;
-    SetMRFRMRelay(byte, bit, 0, state);
-
-    byte = 1;
-    bit = 3;
-    state = 0b00;
-    SetMRFRMRelay(byte, bit, 0, state);
-
-    byte = 1;
-    bit = 7;
-    state = 0b00;
-    SetMRFRMRelay(byte, bit, 0, state);
-
-    //float testFloat = 1;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-    //testFloat = 2;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-    //testFloat = 5;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-    //testFloat = 9;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-    //testFloat = 10;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-    //testFloat = 100;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-    //testFloat = 10000;
-    //printf("float: %f, int: %d\n", testFloat, (int)testFloat);
-
-
-    SerializeDTCMessages(lamps, listDTCs, numDTCs, encMessages, &numEncMsgs);
-    //for (int i = 0; i < numEncMsgs; i++)
-    //{
-    //  printf("Enc. Msg %d: numEncMsgs: %d data: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, numEncMsgs, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
-    //}
-
-    uint8_t lamps_1;
-    rbr_isobus_dtc_ts listDTCs_1[RBR_ISOBUS_DTC_LIST_SIZE_DU16];
-    uint8_t numDTCs_1 = 2;
-    //uint8_t encMessages_1[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
-    //uint8_t numEncMsgs_1;
-
-    ParseDTCMessages(&lamps_1, encMessages, numEncMsgs, listDTCs_1, &numDTCs_1);
-    //for (int i = 0; i < numDTCs_1; i++)
-    //{
-    //  printf("Dec. Msg %d: numDTCs: %d spn: %d fmi: %d\n", i, numDTCs_1, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
-    //}
     while (true)
     {
     }
