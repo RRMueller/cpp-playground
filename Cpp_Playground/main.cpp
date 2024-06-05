@@ -685,6 +685,31 @@ int ExtractValueFromCanTelegram(can_isobus_info messageData, int spnInfoIndex, u
   return 0;
 }
 
+void ScaleAndOffset_Float(uint64_t inRawVal, spn_info spn, float* outVal)
+{
+  *outVal = (float)(inRawVal * spn.scaling + spn.offset);
+}
+
+void ScaleAndOffset_Int(uint64_t inRawVal, spn_info spn, int* outVal)
+{
+  *outVal = (int)(inRawVal * (int)spn.scaling + spn.offset);
+}
+
+void ScaleAndOffset(uint64_t inRawVal, spn_info spn, void* outVal)
+{
+  switch (spn.varType)
+  {
+  case TYPE_INT:
+    ScaleAndOffset_Int(inRawVal, spn, (int*)outVal);
+    break;
+  case TYPE_FLOAT:
+    ScaleAndOffset_Float(inRawVal, spn, (float*)outVal);
+    break;
+  default: // do nothing for now...
+    break;
+  }
+}
+
 typedef enum
 {
   MM7_TX2_ROLL_RATE,
@@ -717,6 +742,48 @@ can_isobus_info INFO_MM7_A_TX2 = {
         {.spnNum = 0, .byte = 7, .bit = 5, .len = 4, .scaling = 1, .offset = 0, .varType = TYPE_INT},
         {.spnNum = 0, .byte = 8, .bit = 1, .len = 8, .scaling = 1, .offset = 0, .varType = TYPE_INT}}};
 
+int InsertValueToCanTelegram(can_isobus_info* messageData, int spnInfoIndex, uint64_t input)
+{
+  uint8_t byteIndex = messageData->spns[spnInfoIndex].byte - 1;                                                               // These values start from 1, not 0
+  uint8_t bitIndex = messageData->spns[spnInfoIndex].bit - 1;                                                                 // These values start from 1, not 0
+  if ((BITS_PER_BYTE * byteIndex + bitIndex + messageData->spns[spnInfoIndex].len) > (messageData->lenMax * BITS_PER_BYTE)) // Check if we are asking for something outside of telegram's allocation
+    return -1;                                                                                                              // Return FSC_ERR if we are going to overrun the array
+
+  uint64_t mask = 0;
+  int i = 0;
+  for (i; i < messageData->spns[spnInfoIndex].len; i++)
+  {
+    mask |= (1 << i);
+  }
+  uint64_t val = 0;
+  uint8_t numBytes = 1 + (bitIndex + messageData->spns[spnInfoIndex].len - 1) / BITS_PER_BYTE; // How many bytes does this information span?
+  i = 0;
+  for (i; i < numBytes; i++)
+  {
+    uint8_t byteMask = 0;
+    uint8_t byteInput = 0;
+    uint8_t invMask = 0;
+    int8_t byteMaskShift = messageData->spns[spnInfoIndex].len - ((BITS_PER_BYTE * (i + 1)) - bitIndex); // figure out how many bits to shift to convert a potential value over 8 bits into chunks of 8 bits
+    if (byteMaskShift > 0)
+    {
+      byteMask = (mask >> byteMaskShift);
+      byteInput = (input >> byteMaskShift) & byteMask;
+    }
+    else // if shift is negative, make it positive and shift left instead
+    {
+      byteMaskShift *= -1;
+      byteMask = (mask << byteMaskShift);
+      byteInput = (input << byteMaskShift) & byteMask;
+    }
+    invMask = ~byteMask;
+    messageData->data[byteIndex + i] &= invMask; // remove previous data in the location we are writing to
+    messageData->data[byteIndex + i] |= byteInput;
+  }
+  // *output = (val >> bitIndex) & mask;
+  return 0;
+}
+
+
 int main()
 {
   for (;;)
@@ -748,6 +815,14 @@ int main()
 
     printf("rollrate Extracted: %d\n", extractedValue);
     printf("rollrate actual:    %d\n", INFO_MM7_A_TX2.data[0] | (INFO_MM7_A_TX2.data[1] << 8));
+
+
+    float engineeringVal = 0;
+    float actualEngineeringVal = 0;
+    ScaleAndOffset(extractedValue, INFO_MM7_A_TX2.spns[MM7_TX2_ROLL_RATE], &engineeringVal);
+    actualEngineeringVal = ((INFO_MM7_A_TX2.data[0] | (INFO_MM7_A_TX2.data[1] << 8)) + -0x8000) * 0.005;
+    printf("scaled value:       %f\n", engineeringVal);
+    printf("scaled value:       %f\n", actualEngineeringVal);
 
     while (true)
     {
