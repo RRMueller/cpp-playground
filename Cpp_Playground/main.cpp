@@ -742,6 +742,25 @@ can_isobus_info INFO_MM7_A_TX2 = {
         {.spnNum = 0, .byte = 7, .bit = 5, .len = 4, .scaling = 1, .offset = 0, .varType = TYPE_INT},
         {.spnNum = 0, .byte = 8, .bit = 1, .len = 8, .scaling = 1, .offset = 0, .varType = TYPE_INT}}};
 
+typedef enum
+{
+  CSTM_ENG_1_SPN_247,
+  CSTM_ENG_1_SPN_249,
+  CSTM_ENG_1_SPN_NUM
+} PGN_CSTM_ENG_1_SPNS;
+can_isobus_info INFO_CSTM_ENG_1 = {
+    .instanceNum = 1,
+    .boxNum = 12,
+    .pgn = 0x200,
+    .src = 0x00,
+    .timeout = 2500,
+    .startTimeout = 5000,
+    .lenMax = 8,
+    .spns = {
+        {.spnNum = 247, .byte = 1, .bit = 1, .len = 32, .scaling = 0.05f, .offset = 0, .varType = TYPE_FLOAT},   // Engine Total Hours of Operation
+        {.spnNum = 249, .byte = 5, .bit = 1, .len = 32, .scaling = 0.05f, .offset = 0, .varType = TYPE_FLOAT}} }; // Engine Total Revolutions
+
+
 int InsertValueToCanTelegram(can_isobus_info* messageData, int spnInfoIndex, uint64_t input)
 {
   uint8_t byteIndex = messageData->spns[spnInfoIndex].byte - 1;                                                               // These values start from 1, not 0
@@ -763,7 +782,7 @@ int InsertValueToCanTelegram(can_isobus_info* messageData, int spnInfoIndex, uin
     uint8_t byteMask = 0;
     uint8_t byteInput = 0;
     uint8_t invMask = 0;
-    int8_t byteMaskShift = messageData->spns[spnInfoIndex].len - ((BITS_PER_BYTE * (i + 1)) - bitIndex); // figure out how many bits to shift to convert a potential value over 8 bits into chunks of 8 bits
+    int8_t byteMaskShift = messageData->spns[spnInfoIndex].len - ((BITS_PER_BYTE * (numBytes - i)) - bitIndex); // figure out how many bits to shift to convert a potential value over 8 bits into chunks of 8 bits
     if (byteMaskShift > 0)
     {
       byteMask = (mask >> byteMaskShift);
@@ -792,37 +811,22 @@ int main()
     uint64_t printTimeout = 2000;
     uint8_t count = 0;
 
-    INFO_MM7_A_TX2.data[0] = 0xFC;
-    INFO_MM7_A_TX2.data[1] = 0x7F;
-    INFO_MM7_A_TX2.data[2] = 0x0B;
-    INFO_MM7_A_TX2.data[3] = 0x37;
-    INFO_MM7_A_TX2.data[4] = 0xD4;
-    INFO_MM7_A_TX2.data[5] = 0x81;
-    INFO_MM7_A_TX2.data[6] = 0x06;
-    INFO_MM7_A_TX2.data[7] = 0x96;
+    uint64_t valueToInsert = 0x12345678;
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_1, CSTM_ENG_1_SPN_247, valueToInsert);
 
-    INFO_MM7_A_TX2.data[0] = 0x64;
-    INFO_MM7_A_TX2.data[1] = 0x5B;
-    INFO_MM7_A_TX2.data[2] = 0x07;
-    INFO_MM7_A_TX2.data[3] = 0x37;
-    INFO_MM7_A_TX2.data[4] = 0x59;
-    INFO_MM7_A_TX2.data[5] = 0x82;
-    INFO_MM7_A_TX2.data[6] = 0x0E;
-    INFO_MM7_A_TX2.data[7] = 0x8D;
-    // {0xfc, 0x7f, 0x0b, 0x37, 0xd4, 0x81, 0x06, 0x96};
-    uint64_t extractedValue = 0;
-    ExtractValueFromCanTelegram(INFO_MM7_A_TX2, MM7_TX2_ROLL_RATE, &extractedValue);
+    printf("actualValueToInsert: %16X\n", valueToInsert);
+    printf("inserted value:      ");
+    for (int i = 0; i < 8; i++)
+    {
+      printf("%02X", INFO_CSTM_ENG_1.data[i]);
+    }
+    printf("\n");
 
-    printf("rollrate Extracted: %d\n", extractedValue);
-    printf("rollrate actual:    %d\n", INFO_MM7_A_TX2.data[0] | (INFO_MM7_A_TX2.data[1] << 8));
+    uint64_t extractedValue;
+    ExtractValueFromCanTelegram(INFO_CSTM_ENG_1, CSTM_ENG_1_SPN_247, &extractedValue);
 
-
-    float engineeringVal = 0;
-    float actualEngineeringVal = 0;
-    ScaleAndOffset(extractedValue, INFO_MM7_A_TX2.spns[MM7_TX2_ROLL_RATE], &engineeringVal);
-    actualEngineeringVal = ((INFO_MM7_A_TX2.data[0] | (INFO_MM7_A_TX2.data[1] << 8)) + -0x8000) * 0.005;
-    printf("scaled value:       %f\n", engineeringVal);
-    printf("scaled value:       %f\n", actualEngineeringVal);
+    printf("extractedValue:      %16X\n", extractedValue);
+    printf("actualValueToInsert: %16X\n", valueToInsert);
 
     while (true)
     {
