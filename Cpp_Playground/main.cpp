@@ -802,37 +802,57 @@ int InsertValueToCanTelegram(can_isobus_info* messageData, int spnInfoIndex, uin
   return 0;
 }
 
+double timeRampScale(uint64_t startTime, uint64_t timeout, double startVal, double endVal, bool* finishedRamp)
+{
+  *finishedRamp = false;
+  if (millis() < startTime) // if millis() is smaller than startTime, output firstVal. timerMillis() doesn't like when startTime < millis()
+  {
+    return startVal;
+  }
+  else
+  {
+    if (timerMillis(&startTime, timeout, false, 0, false) || startVal == endVal) // if startVal == endVal, no need to ramp, set finishedRamp to TRUE
+    {
+      *finishedRamp = true;
+      return endVal;
+    }
+    return scale(millis(), startTime, startTime + timeout, startVal, endVal, true);
+  }
+}
+
 
 int main()
 {
   for (;;)
   {
-    static uint64_t prevPrintTime = 0;
-    uint64_t printTimeout = 2000;
+    static uint64_t prevPrintTime = -100;
+    uint64_t printTimeout = 100;
     uint8_t count = 0;
 
-    uint64_t valueToInsert = 0x12345678;
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_1, CSTM_ENG_1_SPN_247, valueToInsert);
+    static uint64_t prevRampStart = millis() + 1000;
+    const uint64_t RAMP_TIMEOUT = 5000;
+    const uint64_t minVal = 0;
+    const uint64_t maxVal = 5000;
+    static bool finishedRamp = false;
 
-    printf("actualValueToInsert: %16X\n", valueToInsert);
-    printf("inserted value:      ");
-    for (int i = 0; i < 8; i++)
-    {
-      printf("%02X", INFO_CSTM_ENG_1.data[i]);
-    }
-    printf("\n");
+    uint64_t output = 0;
 
-    uint64_t extractedValue;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_1, CSTM_ENG_1_SPN_247, &extractedValue);
 
-    printf("extractedValue:      %16X\n", extractedValue);
-    printf("actualValueToInsert: %16X\n", valueToInsert);
+    output = timeRampScale(prevRampStart, RAMP_TIMEOUT, minVal, maxVal, &finishedRamp);
 
-    while (true)
-    {
-    }
     if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
     {
+      uint64_t timeElapsed = millis() - prevRampStart;
+      printf("time: %d, output: %d\n", timeElapsed, output);
+    }
+
+    static uint64_t progStart = millis();
+    const uint64_t programTimeout = 6200;
+    if (timerMillis(&progStart, programTimeout, false, 0, false))
+    {
+      while (true)
+      {
+      }
     }
   }
   return 0;
