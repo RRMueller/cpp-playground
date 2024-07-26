@@ -623,6 +623,23 @@ int main()
     {
       printf("Dec. Msg %d: numDTCs: %d spn: %d fmi: %d\n", i, numDTCs_1, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
     }
+
+    printf("~~~~~~~~~~~~~~~~~~~\n");
+    uint8_t testArr[8] = { 1,2,3,4,5,6,7,8 };
+    printf("testArr: ");
+    for (int i = 0; i < 8; i++)
+    {
+      printf("%d, ", testArr[i]);
+    }
+    printf("\n");
+    memset(testArr, 0xFF, sizeof(testArr));
+    printf("testArr: ");
+    for (int i = 0; i < 8; i++)
+    {
+      printf("%d, ", testArr[i]);
+    }
+    printf("\n");
+
     while (true)
     {
     }
