@@ -586,65 +586,88 @@ void ParseDTCMessages(uint8_t* lamps, uint8_t encodedMessages[MAX_NUM_ENC_DTC_MS
   DecodeDTCMessages(encDTCs, listDTCs);
 }
 
+#define MS_PER_S 1000
+
+/**
+ * @brief 
+ *
+ * @param[in] 
+ * @return 
+ */
+void RampScale(double * currentVal, double setpoint, double inMin, double inMax, uint64_t *prevTime, uint64_t rampTime)
+{
+  double minVal = (inMin < inMax) ? inMin : inMax;	//	FIND MIN/MAX VALUES - INCASE WE ARE INVERSELY SCALING
+  double maxVal = (inMin > inMax) ? inMin : inMax;
+  uint64_t now = millis();
+  uint64_t timeSince = now - *prevTime;
+  *prevTime = now;
+  double maxIncrement = ((maxVal - minVal) / (double)rampTime) * (double)timeSince;
+  double increment = setpoint - *currentVal;
+  bool goUp;
+
+  if (increment > 0) // have to increase to reach setpoint
+    goUp = true;
+  else // have to decrease to reach setpoint
+    goUp = false;
+
+  if (increment < maxIncrement)
+  {
+    *currentVal += increment;
+  }
+  else if (goUp)
+  {
+    *currentVal += maxIncrement;
+  }
+  else
+  {
+    *currentVal -= maxIncrement;
+  }
+
+  if (*currentVal > maxVal) // limit output to between inMin and inMax
+  {
+    *currentVal = maxVal;
+  }
+  if (*currentVal < minVal)
+  {
+    *currentVal = minVal;
+  }
+}
+
+
 
 
 int main()
 {
   for (;;)
   {
-    static uint64_t prevPrintTime = 0;
-    uint64_t printTimeout = 2000;
-    uint8_t count = 0;
+    static uint64_t prevPrintTime = millis();
+    uint64_t printTimeout = 100;
+    static uint8_t count = 0;
 
-    //int canDiagTxID = 0x18FF0000;  //  ID for diagnostics messages we send to CAN bus
-    //int canDiagTxID_1 = canDiagTxID | (1 << 8);  //  0x18FF0100
+    static uint64_t loopPrevTime = millis();
+    uint64_t loopTimeout = 2000;
 
-    uint8_t lamps = 0b00000001;
-    rbr_isobus_dtc_ts listDTCs[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
-    uint8_t numDTCs = 2;
-    uint8_t encMessages[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
-    uint8_t numEncMsgs;
+    static double currentValue = 0;
+    static double setpoint = 10;
+    static double inMin = 0;
+    static double inMax = 10;
+    static uint64_t startTime = millis();
+    static uint64_t prevTime = millis();
+    uint64_t rampTime = 1000;
 
+    RampScale(&currentValue, setpoint, inMin, inMax, &prevTime, rampTime);
 
-    SerializeDTCMessages(lamps, listDTCs, numDTCs, encMessages, &numEncMsgs);
-    for (int i = 0; i < numEncMsgs; i++)
-    {
-      printf("Enc. Msg %d: numEncMsgs: %d data: %02X %02X %02X %02X %02X %02X %02X %02X\n", i, numEncMsgs, encMessages[i][0], encMessages[i][1], encMessages[i][2], encMessages[i][3], encMessages[i][4], encMessages[i][5], encMessages[i][6], encMessages[i][7]);
-    }
-
-    uint8_t lamps_1;
-    rbr_isobus_dtc_ts listDTCs_1[RBR_ISOBUS_DTC_LIST_SIZE_DU16] = { {.spn_u32 = 190, .fmi_u8 = 2}, {.spn_u32 = 190, .fmi_u8 = 8} };
-    uint8_t numDTCs_1 = 2;
-    //uint8_t encMessages_1[MAX_NUM_ENC_DTC_MSGS][MAX_NUM_BYTES_PER_DTC_MSG];
-    //uint8_t numEncMsgs_1;
-
-    ParseDTCMessages(&lamps_1, encMessages, numEncMsgs, listDTCs_1, &numDTCs_1);
-    for (int i = 0; i < numDTCs_1; i++)
-    {
-      printf("Dec. Msg %d: numDTCs: %d spn: %d fmi: %d\n", i, numDTCs_1, listDTCs_1[i].spn_u32, listDTCs_1[i].fmi_u8);
-    }
-
-    printf("~~~~~~~~~~~~~~~~~~~\n");
-    uint8_t testArr[8] = { 1,2,3,4,5,6,7,8 };
-    printf("testArr: ");
-    for (int i = 0; i < 8; i++)
-    {
-      printf("%d, ", testArr[i]);
-    }
-    printf("\n");
-    memset(testArr, 0xFF, sizeof(testArr));
-    printf("testArr: ");
-    for (int i = 0; i < 8; i++)
-    {
-      printf("%d, ", testArr[i]);
-    }
-    printf("\n");
-
-    while (true)
-    {
-    }
     if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
     {
+      printf("time: %d  incrementer: %f\n", millis() - startTime, currentValue);
+      setpoint += 0.1;
+    }
+
+    if (timerMillis(&loopPrevTime, loopTimeout, false, 0, false))
+    {
+      while (true) // do nothing when you're done with the code you're testing
+      {
+      }
     }
   }
   return 0;
