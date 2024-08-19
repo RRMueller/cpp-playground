@@ -633,7 +633,152 @@ void RampScale(double * currentVal, double setpoint, double inMin, double inMax,
   }
 }
 
+const int MAX_NUM_SPNS = 32;
+const int BITS_PER_BYTE = 8;
 
+typedef enum
+{
+    TYPE_INT,
+    TYPE_FLOAT,
+    NUM_VAR_TYPES // Special value to represent the total number of DTC codes
+} var_type;
+
+typedef struct
+{
+    uint32_t spnNum;
+    uint8_t byte; // we start counting this at 1 instead of 0, since non-programmers made the J1939 standard...
+    uint8_t bit;  // we start counting this at 1 instead of 0, since non-programmers made the J1939 standard...
+    uint8_t len;
+    float scaling;
+    int32_t offset;
+    var_type varType;
+} spn_info;
+
+typedef struct
+{
+    uint8_t instanceNum;
+    uint16_t boxNum;
+    uint32_t pgn;
+    uint8_t format; // BDS_CAN_STD_DU8 or BDS_CAN_EXD_DU8
+    uint8_t prio;
+    uint8_t src;
+    uint8_t dest;
+    uint16_t cycle;
+    uint16_t offset;
+    uint16_t timeout;
+    uint16_t startTimeout;
+    uint32_t lenMax;
+    uint8_t data[8];
+    spn_info spns[MAX_NUM_SPNS];
+} can_isobus_info;
+
+
+/**
+ * @brief Extracts a value of type uint16 at a given location and length from an array of uint8's, returns success
+ *
+ * @param[in] telegram[] array of bytes from CAN Telegram
+ * @param[in] sizeOfTelegram size of array (number of elements)
+ * @param[inout] output* extracted value
+ * @param[in] spnConfig struct of type SPN_Config, location and length of requested value in array
+ * @return success status of block.
+ */
+
+int ExtractValueFromCanTelegram(can_isobus_info messageData, int spnInfoIndex, uint64_t* output)
+{
+    uint8_t byteIndex = messageData.spns[spnInfoIndex].byte - 1;                                                              // These values start from 1, not 0
+    uint8_t bitIndex = messageData.spns[spnInfoIndex].bit - 1;                                                                // These values start from 1, not 0
+    if ((BITS_PER_BYTE * byteIndex + bitIndex + messageData.spns[spnInfoIndex].len) > (messageData.lenMax * BITS_PER_BYTE)) // Check if we are asking for something outside of telegram's allocation
+        return -1;                                                                                                            // Return FSC_ERR if we are going to overrun the array
+
+    uint64_t mask = 0;
+    uint8_t i = 0;
+    for (i; i < messageData.spns[spnInfoIndex].len; i++)
+    {
+        mask |= (1 << i);
+    }
+    uint64_t val = 0;
+    uint8_t numBytes = 1 + (bitIndex + messageData.spns[spnInfoIndex].len - 1) / BITS_PER_BYTE; // How many bytes does this information span?
+    i = 0;
+    for (i; i < numBytes; i++)
+    {
+        val |= messageData.data[byteIndex + i] << (BITS_PER_BYTE * i);
+    }
+    *output = (val >> bitIndex) & mask;
+    return 0;
+}
+
+int InsertValueToCanTelegram(can_isobus_info* messageData, int spnInfoIndex, uint64_t input)
+{
+    uint8_t byteIndex = messageData->spns[spnInfoIndex].byte - 1;                                                               // These values start from 1, not 0
+    uint8_t bitIndex = messageData->spns[spnInfoIndex].bit - 1;                                                                 // These values start from 1, not 0
+    if ((BITS_PER_BYTE * byteIndex + bitIndex + messageData->spns[spnInfoIndex].len) > (messageData->lenMax * BITS_PER_BYTE)) // Check if we are asking for something outside of telegram's allocation
+        return -1;                                                                                                              // Return FSC_ERR if we are going to overrun the array
+
+    uint64_t mask = 0;
+    uint8_t i = 0;
+    for (i; i < messageData->spns[spnInfoIndex].len; i++)
+    {
+        mask |= (1 << i);
+    }
+    uint64_t val = 0;
+    uint8_t numBytes = 1 + (bitIndex + messageData->spns[spnInfoIndex].len - 1) / BITS_PER_BYTE; // How many bytes does this information span?
+    i = 0;
+    for (i; i < numBytes; i++)
+    {
+        uint8_t byteMask = 0;
+        uint8_t byteInput = 0;
+        uint8_t invMask = 0;
+        int8_t byteMaskShift = messageData->spns[spnInfoIndex].len - ((BITS_PER_BYTE * (numBytes - i)) - bitIndex); // figure out how many bits to shift to convert a potential value over 8 bits into chunks of 8 bits
+        if (byteMaskShift > 0)
+        {
+            byteMask = (mask >> byteMaskShift);
+            byteInput = (input >> byteMaskShift) & byteMask;
+        }
+        else // if shift is negative, make it positive and shift left instead
+        {
+            byteMaskShift *= -1;
+            byteMask = (mask << byteMaskShift);
+            byteInput = (input << byteMaskShift) & byteMask;
+        }
+        invMask = ~byteMask;
+        messageData->data[byteIndex + i] &= invMask; // remove previous data in the location we are writing to
+        messageData->data[byteIndex + i] |= byteInput;
+    }
+    // *output = (val >> bitIndex) & mask;
+    return 0;
+}
+
+typedef enum
+{
+    CSTM_ENG_3_SPN_183,
+    CSTM_ENG_3_SPN_105,
+    CSTM_ENG_3_SPN_106,
+    CSTM_ENG_3_SPN_96,
+    CSTM_ENG_3_SPN_84,
+    CSTM_ENG_3_MULCHR_ON,
+    CSTM_ENG_3_PRKBRK_ON,
+    CSTM_ENG_3_SPN_NUM
+} PGN_CSTM_ENG_3_SPNS;
+
+
+can_isobus_info INFO_CSTM_ENG_3 = {
+    .instanceNum = 1,
+    .boxNum = 14,
+    .pgn = 0x202,
+    .src = 0x00,
+    .timeout = 2500,
+    .startTimeout = 5000,
+    .lenMax = 8,
+    .spns = {
+        {.spnNum = 183, .byte = 1, .bit = 1, .len = 16, .scaling = 0.05f, .offset = 0, .varType = TYPE_FLOAT},       // Engine Fuel Rate
+        {.spnNum = 105, .byte = 3, .bit = 1, .len = 8, .scaling = 1, .offset = -40, .varType = TYPE_INT},            // Engine Intake Manifold 1 Temperature
+        {.spnNum = 106, .byte = 4, .bit = 1, .len = 8, .scaling = 2, .offset = 0, .varType = TYPE_INT},              // Engine Air Intake Pressure
+        {.spnNum = 96, .byte = 5, .bit = 1, .len = 8, .scaling = 0.4f, .offset = 0, .varType = TYPE_FLOAT},           // Fuel Level 1 - Measured, Not from Engine
+        {.spnNum = 84, .byte = 6, .bit = 1, .len = 16, .scaling = 0.00390625f, .offset = 0, .varType = TYPE_FLOAT}, // Wheel-based Vehicle Speed, Not from Engine
+        {.spnNum = 0, .byte = 8, .bit = 1, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT},      // Mulcher ON/OFF - BOOL
+        {.spnNum = 0, .byte = 8, .bit = 3, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT} ,     // Park Brake ON/OFF - BOOL
+        {.spnNum = 0, .byte = 8, .bit = 5, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT},    // Park Brake ON/OFF - BOOL
+        {.spnNum = 0, .byte = 8, .bit = 7, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT}} };      // Park Brake ON/OFF - BOOL
 
 
 int main()
@@ -647,22 +792,39 @@ int main()
     static uint64_t loopPrevTime = millis();
     uint64_t loopTimeout = 2000;
 
-    static double currentValue = 0;
-    static double setpoint = 10;
-    static double inMin = 0;
-    static double inMax = 10;
-    static uint64_t startTime = millis();
-    static uint64_t prevTime = millis();
-    uint64_t rampTime = 1000;
+    can_isobus_info testData = INFO_CSTM_ENG_3;
 
-    RampScale(&currentValue, setpoint, inMin, inMax, &prevTime, rampTime);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, 0xAB56);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, 0);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, 1);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 7, 2);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 8, 3);
 
-    if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
+    printf("databefore[5]: %02X\n", INFO_CSTM_ENG_3.data[5]);
+    printf("databefore[6]: %02X\n", INFO_CSTM_ENG_3.data[6]);
+    printf("databefore[7]: %02X\n", INFO_CSTM_ENG_3.data[7]);
+
+    uint64_t SPEED = 0;
+    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, &SPEED);
+    uint64_t mulcherOn = 0;
+    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, &mulcherOn);
+    uint64_t parkBrakeOn = 0;
+    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, &parkBrakeOn);
+    uint64_t data0 = 0;
+    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, 7, &data0);
+    uint64_t data1 = 0;
+    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, 8, &data1);
+
+
+    printf("SPEED: %02X\n", SPEED);
+    printf("mulcherOn: %d\n", mulcherOn);
+    printf("parkBrakeOn: %d\n", parkBrakeOn);
+    printf("data0: %d\n", data0);
+    printf("data1: %d\n", data1);
+
+    while (true) // do nothing when you're done with the code you're testing
     {
-      printf("time: %d  incrementer: %f\n", millis() - startTime, currentValue);
-      setpoint += 0.1;
     }
-
     if (timerMillis(&loopPrevTime, loopTimeout, false, 0, false))
     {
       while (true) // do nothing when you're done with the code you're testing
