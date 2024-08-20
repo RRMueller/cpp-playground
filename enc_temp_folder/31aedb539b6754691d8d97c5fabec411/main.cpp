@@ -687,7 +687,7 @@ int ExtractValueFromCanTelegram(can_isobus_info messageData, int spnInfoIndex, u
 {
     uint8_t byteIndex = messageData.spns[spnInfoIndex].byte - 1;                                                              // These values start from 1, not 0
     uint8_t bitIndex = messageData.spns[spnInfoIndex].bit - 1;                                                                // These values start from 1, not 0
-    if ((BITS_PER_BYTE * byteIndex + bitIndex + messageData.spns[spnInfoIndex].len) > (messageData.lenMax * BITS_PER_BYTE))   // Check if we are asking for something outside of telegram's allocation
+    if ((BITS_PER_BYTE * byteIndex + bitIndex + messageData.spns[spnInfoIndex].len) > (messageData.lenMax * BITS_PER_BYTE)) // Check if we are asking for something outside of telegram's allocation
         return -1;                                                                                                            // Return FSC_ERR if we are going to overrun the array
 
     uint64_t mask = 0;
