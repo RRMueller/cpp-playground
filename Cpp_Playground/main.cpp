@@ -703,7 +703,15 @@ int ExtractValueFromCanTelegram(can_isobus_info messageData, int spnInfoIndex, u
     {
         val |= messageData.data[byteIndex + i] << (BITS_PER_BYTE * i);
     }
-    *output = (val >> bitIndex) & mask;
+    if (numBytes == 1) // If we are contained in one single byte, little-endianess makes things a little stupid, so read backwards
+    {
+        int8_t byteMaskShift = 8 - (bitIndex + messageData.spns[spnInfoIndex].len);
+        *output = (val >> byteMaskShift) & mask;
+    }
+    else
+    {
+        *output = (val >> bitIndex) & mask;
+    }
     return 0;
 }
 
@@ -736,18 +744,9 @@ int InsertValueToCanTelegram(can_isobus_info* messageData, int spnInfoIndex, uin
         }
         else // if shift is negative, make it positive and shift left instead
         {
-            if (numBytes == 1) // If we are contained in one single byte, little-endianess makes things a little stupid, so read backwards
-            {
-                byteMaskShift = 8 + (byteMaskShift - messageData->spns[spnInfoIndex].len);
-                byteMask = (mask << byteMaskShift);
-                byteInput = (input << byteMaskShift) & byteMask;
-            }
-            else
-            {
-                byteMaskShift *= -1;
-                byteMask = (mask << byteMaskShift);
-                byteInput = (input << byteMaskShift) & byteMask;
-            }
+            byteMaskShift *= -1;
+            byteMask = (mask << byteMaskShift);
+            byteInput = (input << byteMaskShift) & byteMask;
         }
         invMask = ~byteMask;
         messageData->data[byteIndex + i] &= invMask; // remove previous data in the location we are writing to
@@ -779,14 +778,14 @@ can_isobus_info INFO_CSTM_ENG_3 = {
     .startTimeout = 5000,
     .lenMax = 8,
     .spns = {
-        {.spnNum = 183, .byte = 1, .bit = 5, .len = 4, .scaling = 0.05f, .offset = 0, .varType = TYPE_FLOAT},       // Engine Fuel Rate
+        {.spnNum = 183, .byte = 1, .bit = 1, .len = 8, .scaling = 0.05f, .offset = 0, .varType = TYPE_FLOAT},       // Engine Fuel Rate
         {.spnNum = 105, .byte = 3, .bit = 1, .len = 8, .scaling = 1, .offset = -40, .varType = TYPE_INT},            // Engine Intake Manifold 1 Temperature
         {.spnNum = 106, .byte = 4, .bit = 1, .len = 8, .scaling = 2, .offset = 0, .varType = TYPE_INT},              // Engine Air Intake Pressure
         {.spnNum = 96, .byte = 5, .bit = 1, .len = 8, .scaling = 0.4f, .offset = 0, .varType = TYPE_FLOAT},           // Fuel Level 1 - Measured, Not from Engine
         {.spnNum = 84, .byte = 6, .bit = 1, .len = 16, .scaling = 0.00390625f, .offset = 0, .varType = TYPE_FLOAT}, // Wheel-based Vehicle Speed, Not from Engine
-        {.spnNum = 0, .byte = 8, .bit = 1, .len = 1, .scaling = 1, .offset = 0, .varType = TYPE_INT},      // Mulcher ON/OFF - BOOL
+        {.spnNum = 0, .byte = 8, .bit = 1, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT},      // Mulcher ON/OFF - BOOL
         {.spnNum = 0, .byte = 8, .bit = 3, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT} ,     // Park Brake ON/OFF - BOOL
-        {.spnNum = 0, .byte = 8, .bit = 5, .len = 3, .scaling = 1, .offset = 0, .varType = TYPE_INT},    // Park Brake ON/OFF - BOOL
+        {.spnNum = 0, .byte = 8, .bit = 5, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT},    // Park Brake ON/OFF - BOOL
         {.spnNum = 0, .byte = 8, .bit = 7, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT}} };      // Park Brake ON/OFF - BOOL
 
 
@@ -803,12 +802,12 @@ int main()
 
     can_isobus_info testData = INFO_CSTM_ENG_3;
 
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0xF);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0x3);
     InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_96, 0x69); 
     InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, 0xAB56);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, 1);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, 3);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 7, 4);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, 0);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, 1);
+    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 7, 2);
     InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 8, 3);
 
     printf("databefore[0]: %02X\n", INFO_CSTM_ENG_3.data[0]);
