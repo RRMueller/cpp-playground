@@ -843,9 +843,26 @@ int main()
     printf("data0: %d\n", data0);
     printf("data1: %d\n", data1);
 
-    while (true) // do nothing when you're done with the code you're testing
+
+    static const int NUM_POT_VALS = 5;
+    static int potValArr[NUM_POT_VALS] = { 0 };
+    static int avgCounter = 0;
+    potValArr[avgCounter] = 127;
+    avgCounter++;
+    if (avgCounter == NUM_POT_VALS)
     {
+        avgCounter = 0;
     }
+    int sumPotVals = 0;
+    for (int i = 0; i < NUM_POT_VALS; i++)
+    {
+        sumPotVals += potValArr[i];
+    }
+    int avgPotVal = sumPotVals / NUM_POT_VALS;
+    int output = (int)scale(avgPotVal, 0, 127, 0, 100, true);
+
+    printf("~~~~\n average: %d\n", output);
+
     if (timerMillis(&loopPrevTime, loopTimeout, false, 0, false))
     {
       while (true) // do nothing when you're done with the code you're testing
