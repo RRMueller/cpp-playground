@@ -1,0 +1,1 @@
+dbcc -j input.dbc

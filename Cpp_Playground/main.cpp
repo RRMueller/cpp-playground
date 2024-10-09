@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <random>
 #include <math.h>
+#include <windows.h>
 
 typedef struct
 {
@@ -791,6 +792,13 @@ can_isobus_info INFO_CSTM_ENG_3 = {
 
 int main()
 {
+  // RUNS DBCC.EXE TO CONVERT OUR `input.dbc` INTO A .JSON FILE!
+  LPCSTR open = "runas";
+  LPCSTR executable = "dbcc\\dbcc.exe";
+  LPCSTR parameters = "-j input.dbc";
+  //LPCSTR path = "dbcc\\";
+  //LPCSTR filepath = "dbcc\\putty.exe";
+  printf("%d\n", ShellExecuteA(NULL, open, executable, parameters, NULL, SW_SHOWNORMAL)); // RETURNS 42 IF GOOD! 
   for (;;)
   {
     static uint64_t prevPrintTime = millis();
@@ -800,71 +808,73 @@ int main()
     static uint64_t loopPrevTime = millis();
     uint64_t loopTimeout = 2000;
 
-    can_isobus_info testData = INFO_CSTM_ENG_3;
+    //can_isobus_info testData = INFO_CSTM_ENG_3;
 
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0x3);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_96, 0x69); 
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, 0xAB56);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, 0);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, 1);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 7, 2);
-    InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 8, 3);
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0x3);
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_96, 0x69); 
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, 0xAB56);
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, 0);
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, 1);
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 7, 2);
+    //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, 8, 3);
 
-    printf("databefore[0]: %02X\n", INFO_CSTM_ENG_3.data[0]);
-    printf("databefore[1]: %02X\n", INFO_CSTM_ENG_3.data[1]);
-    printf("databefore[2]: %02X\n", INFO_CSTM_ENG_3.data[2]);
-    printf("databefore[3]: %02X\n", INFO_CSTM_ENG_3.data[3]);
-    printf("databefore[4]: %02X\n", INFO_CSTM_ENG_3.data[4]);
-    printf("databefore[5]: %02X\n", INFO_CSTM_ENG_3.data[5]);
-    printf("databefore[6]: %02X\n", INFO_CSTM_ENG_3.data[6]);
-    printf("databefore[7]: %02X\n", INFO_CSTM_ENG_3.data[7]);
+    //printf("databefore[0]: %02X\n", INFO_CSTM_ENG_3.data[0]);
+    //printf("databefore[1]: %02X\n", INFO_CSTM_ENG_3.data[1]);
+    //printf("databefore[2]: %02X\n", INFO_CSTM_ENG_3.data[2]);
+    //printf("databefore[3]: %02X\n", INFO_CSTM_ENG_3.data[3]);
+    //printf("databefore[4]: %02X\n", INFO_CSTM_ENG_3.data[4]);
+    //printf("databefore[5]: %02X\n", INFO_CSTM_ENG_3.data[5]);
+    //printf("databefore[6]: %02X\n", INFO_CSTM_ENG_3.data[6]);
+    //printf("databefore[7]: %02X\n", INFO_CSTM_ENG_3.data[7]);
 
-    uint64_t WEIRD = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, &WEIRD);
-    uint64_t DISTANCE = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_96, &DISTANCE);
-    uint64_t SPEED = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, &SPEED);
-    uint64_t mulcherOn = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, &mulcherOn);
-    uint64_t parkBrakeOn = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, &parkBrakeOn);
-    uint64_t data0 = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, 7, &data0);
-    uint64_t data1 = 0;
-    ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, 8, &data1);
-
-
-    printf("WEIRD: %02X\n", WEIRD);
-    printf("DISTANCE: %02X\n", DISTANCE);
-    printf("SPEED: %02X\n", SPEED);
-    printf("mulcherOn: %d\n", mulcherOn);
-    printf("parkBrakeOn: %d\n", parkBrakeOn);
-    printf("data0: %d\n", data0);
-    printf("data1: %d\n", data1);
+    //uint64_t WEIRD = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, &WEIRD);
+    //uint64_t DISTANCE = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_96, &DISTANCE);
+    //uint64_t SPEED = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_84, &SPEED);
+    //uint64_t mulcherOn = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_MULCHR_ON, &mulcherOn);
+    //uint64_t parkBrakeOn = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, CSTM_ENG_3_PRKBRK_ON, &parkBrakeOn);
+    //uint64_t data0 = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, 7, &data0);
+    //uint64_t data1 = 0;
+    //ExtractValueFromCanTelegram(INFO_CSTM_ENG_3, 8, &data1);
 
 
-    static const int NUM_POT_VALS = 5;
-    static int potValArr[NUM_POT_VALS] = { 0 };
-    static int avgCounter = 0;
-    potValArr[avgCounter] = 127;
-    avgCounter++;
-    if (avgCounter == NUM_POT_VALS)
-    {
-        avgCounter = 0;
-    }
-    int sumPotVals = 0;
-    for (int i = 0; i < NUM_POT_VALS; i++)
-    {
-        sumPotVals += potValArr[i];
-    }
-    int avgPotVal = sumPotVals / NUM_POT_VALS;
-    int output = (int)scale(avgPotVal, 0, 127, 0, 100, true);
+    //printf("WEIRD: %02X\n", WEIRD);
+    //printf("DISTANCE: %02X\n", DISTANCE);
+    //printf("SPEED: %02X\n", SPEED);
+    //printf("mulcherOn: %d\n", mulcherOn);
+    //printf("parkBrakeOn: %d\n", parkBrakeOn);
+    //printf("data0: %d\n", data0);
+    //printf("data1: %d\n", data1);
 
-    printf("~~~~\n average: %d\n", output);
+
+    //static const int NUM_POT_VALS = 5;
+    //static int potValArr[NUM_POT_VALS] = { 0 };
+    //static int avgCounter = 0;
+    //potValArr[avgCounter] = 127;
+    //avgCounter++;
+    //if (avgCounter == NUM_POT_VALS)
+    //{
+    //    avgCounter = 0;
+    //}
+    //int sumPotVals = 0;
+    //for (int i = 0; i < NUM_POT_VALS; i++)
+    //{
+    //    sumPotVals += potValArr[i];
+    //}
+    //int avgPotVal = sumPotVals / NUM_POT_VALS;
+    //int output = (int)scale(avgPotVal, 0, 127, 0, 100, true);
+
+    //printf("~~~~\n average: %d\n", output);
+
 
     if (timerMillis(&loopPrevTime, loopTimeout, false, 0, false))
     {
+      return 0;
       while (true) // do nothing when you're done with the code you're testing
       {
       }
