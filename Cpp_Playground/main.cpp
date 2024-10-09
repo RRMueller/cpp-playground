@@ -794,11 +794,11 @@ int main()
 {
   // RUNS DBCC.EXE TO CONVERT OUR `input.dbc` INTO A .JSON FILE!
   LPCSTR open = "runas";
-  LPCSTR executable = "dbcc\\dbcc.exe";
+  LPCSTR executable = "dbcc.exe";
   LPCSTR parameters = "-j input.dbc";
-  //LPCSTR path = "dbcc\\";
+  LPCSTR path = "dbcc\\";
   //LPCSTR filepath = "dbcc\\putty.exe";
-  printf("%d\n", ShellExecuteA(NULL, open, executable, parameters, NULL, SW_SHOWNORMAL)); // RETURNS 42 IF GOOD! 
+  printf("%d\n", ShellExecuteA(NULL, open, executable, parameters, path, SW_SHOWNORMAL)); // RETURNS 42 IF GOOD! 
   for (;;)
   {
     static uint64_t prevPrintTime = millis();
