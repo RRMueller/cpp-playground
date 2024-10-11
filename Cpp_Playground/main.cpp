@@ -780,34 +780,126 @@ can_isobus_info INFO_CSTM_ENG_3 = {
     .lenMax = 8,
     .spns = {
         {.spnNum = 183, .byte = 1, .bit = 1, .len = 8, .scaling = 0.05f, .offset = 0, .varType = TYPE_FLOAT},       // Engine Fuel Rate
-        {.spnNum = 105, .byte = 3, .bit = 1, .len = 8, .scaling = 1, .offset = -40, .varType = TYPE_INT},            // Engine Intake Manifold 1 Temperature
-        {.spnNum = 106, .byte = 4, .bit = 1, .len = 8, .scaling = 2, .offset = 0, .varType = TYPE_INT},              // Engine Air Intake Pressure
-        {.spnNum = 96, .byte = 5, .bit = 1, .len = 8, .scaling = 0.4f, .offset = 0, .varType = TYPE_FLOAT},           // Fuel Level 1 - Measured, Not from Engine
-        {.spnNum = 84, .byte = 6, .bit = 1, .len = 16, .scaling = 0.00390625f, .offset = 0, .varType = TYPE_FLOAT}, // Wheel-based Vehicle Speed, Not from Engine
-        {.spnNum = 0, .byte = 8, .bit = 1, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT},      // Mulcher ON/OFF - BOOL
-        {.spnNum = 0, .byte = 8, .bit = 3, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT} ,     // Park Brake ON/OFF - BOOL
-        {.spnNum = 0, .byte = 8, .bit = 5, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT},    // Park Brake ON/OFF - BOOL
-        {.spnNum = 0, .byte = 8, .bit = 7, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT}} };      // Park Brake ON/OFF - BOOL
+        { .spnNum = 105, .byte = 3, .bit = 1, .len = 8, .scaling = 1, .offset = -40, .varType = TYPE_INT },            // Engine Intake Manifold 1 Temperature
+        { .spnNum = 106, .byte = 4, .bit = 1, .len = 8, .scaling = 2, .offset = 0, .varType = TYPE_INT },              // Engine Air Intake Pressure
+        { .spnNum = 96, .byte = 5, .bit = 1, .len = 8, .scaling = 0.4f, .offset = 0, .varType = TYPE_FLOAT },           // Fuel Level 1 - Measured, Not from Engine
+        { .spnNum = 84, .byte = 6, .bit = 1, .len = 16, .scaling = 0.00390625f, .offset = 0, .varType = TYPE_FLOAT }, // Wheel-based Vehicle Speed, Not from Engine
+        { .spnNum = 0, .byte = 8, .bit = 1, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT },      // Mulcher ON/OFF - BOOL
+        { .spnNum = 0, .byte = 8, .bit = 3, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT },     // Park Brake ON/OFF - BOOL
+        { .spnNum = 0, .byte = 8, .bit = 5, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT },    // Park Brake ON/OFF - BOOL
+        { .spnNum = 0, .byte = 8, .bit = 7, .len = 2, .scaling = 1, .offset = 0, .varType = TYPE_INT }} };      // Park Brake ON/OFF - BOOL
 
+        typedef struct
+        {
+            uint32_t newSample;
+            uint16_t numSamples;
+            uint16_t index;
+            uint64_t sum;
+            uint64_t movingAvg;
+            uint16_t movingAvgCnt;
+            uint16_t movingAvgSamplesSaved;
+            uint32_t movingAvgArr[1000]; // enough for 10s of samples at 10ms loop
 
-int main()
-{
-  // RUNS DBCC.EXE TO CONVERT OUR `input.dbc` INTO A .JSON FILE!
-  LPCSTR open = "runas";
-  LPCSTR executable = "dbcc.exe";
-  LPCSTR parameters = "-j input.dbc";
-  LPCSTR path = "dbcc\\";
-  //LPCSTR filepath = "dbcc\\putty.exe";
-  printf("%d\n", ShellExecuteA(NULL, open, executable, parameters, path, SW_SHOWNORMAL)); // RETURNS 42 IF GOOD! 
-  for (;;)
-  {
-    static uint64_t prevPrintTime = millis();
-    uint64_t printTimeout = 100;
-    static uint8_t count = 0;
+        } movingAverage_ts;
 
-    static uint64_t loopPrevTime = millis();
-    uint64_t loopTimeout = 2000;
+        /**
+         * @brief Inserts new data sample into buffer and calculates new moving average
+         *
+         * @param[in] MA->newSample New value to be added to buffer `MA->movingAvgArr[]`
+         * @param[in] MA->numSamples How large `MA->movingAvgArr[]` should be - DON'T MAKE LARGER THAN ARRAY
+         * @param[out] MA->index index of current sample value inside of buffer `MA->movingAvgArr[]`
+         * @param[out] MA->sum The sum of all values in `MA->movingAvgArr[]`
+         * @param[out] MA->movingAvg calculated average of all the values in `MA->movingAvgArr[]`
+         * @param[out] MA->movingAvgCnt Indicator that tells us if we have a full window of values(?)
+         * @param[out] MA->movingAvgSamplesSaved Indicates how many samples have been saved to buffer
+         * @param[out] MA->movingAvgArr[1000] buffer that stores all the samples for the moving average
+         */
+        void MovingAverage(movingAverage_ts* MA)
+        {
+            if (MA->movingAvgSamplesSaved != MA->numSamples)
+            {
+                MA->movingAvgCnt = 0;
+                MA->sum = 0;
+                MA->index = 0;
+            }
 
+            if (MA->index < (MA->numSamples - 1))
+            {
+                if (MA->movingAvgCnt > 0)
+                {
+                    MA->sum -= MA->movingAvgArr[MA->index];
+                }
+                MA->movingAvgArr[MA->index] = MA->newSample;
+                MA->sum += MA->newSample;
+                MA->index++;
+            }
+            else
+            {
+                if (MA->movingAvgCnt > 0)
+                {
+                    MA->sum -= MA->movingAvgArr[MA->index];
+                }
+                MA->movingAvgArr[MA->index] = MA->newSample;
+                MA->sum += MA->newSample;
+                MA->index = 0;
+                if (MA->movingAvgCnt < 2)
+                {
+                    MA->movingAvgCnt++;
+                }
+            }
+
+            if (MA->movingAvgCnt > 0)
+            {
+                MA->movingAvg = MA->sum / MA->numSamples;
+            }
+
+            MA->movingAvgSamplesSaved = MA->numSamples;
+        }
+
+        int main()
+        {
+            // RUNS DBCC.EXE TO CONVERT OUR `input.dbc` INTO A .JSON FILE!
+            //LPCSTR open = "runas";
+            //LPCSTR executable = "dbcc.exe";
+            //LPCSTR parameters = "-j input.dbc";
+            //LPCSTR path = "dbcc\\";
+            ////LPCSTR filepath = "dbcc\\putty.exe";
+            //printf("%d\n", ShellExecuteA(NULL, open, executable, parameters, path, SW_SHOWNORMAL)); // RETURNS 42 IF GOOD! 
+            for (;;)
+            {
+                static uint64_t prevPrintTime = millis();
+                uint64_t printTimeout = 100;
+                static uint8_t count = 0;
+
+                static uint64_t loopPrevTime = millis();
+                uint64_t loopTimeout = 2000;
+
+                static movingAverage_ts track1;
+                track1.numSamples = 100;
+                track1.newSample = 0;
+
+                static movingAverage_ts track2;
+                track2.numSamples = 100;
+                track2.newSample = 10000;
+
+                    for (int j = 0; j < track1.numSamples * 1001.5; j++)
+                    {
+                        track1.newSample++;
+                        track2.newSample++;
+                        MovingAverage(&track1);
+                        MovingAverage(&track2);
+                        if (track1.index == 0)
+                        {
+                            track1.newSample = 0;
+                            track2.newSample = 10000;
+                        }
+                    }
+
+                printf("track1 Avg: %d\n", track1.movingAvg);
+                printf("track2 Avg: %d\n", track2.movingAvg);
+                while (true) // do nothing when you're done with the code you're testing
+                {
+                }
     //can_isobus_info testData = INFO_CSTM_ENG_3;
 
     //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0x3);
@@ -874,7 +966,6 @@ int main()
 
     if (timerMillis(&loopPrevTime, loopTimeout, false, 0, false))
     {
-      return 0;
       while (true) // do nothing when you're done with the code you're testing
       {
       }
