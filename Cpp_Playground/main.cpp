@@ -791,14 +791,14 @@ can_isobus_info INFO_CSTM_ENG_3 = {
 
 typedef struct
 {
-  uint32_t newSample;
+  int32_t newSample;
   uint16_t numSamples;
   uint16_t index;
-  uint64_t sum;
-  uint64_t movingAvg;
+  int64_t sum;
+  int64_t movingAvg;
   uint16_t movingAvgCnt;
   uint16_t movingAvgSamplesSaved;
-  uint32_t movingAvgArr[1000]; // enough for 10s of samples at 10ms loop
+  int32_t movingAvgArr[1000]; // enough for 10s of samples at 10ms loop
 
 } movingAverage_ts;
 
@@ -902,24 +902,24 @@ int main()
     static uint64_t loopPrevTime = millis();
     uint64_t loopTimeout = 2000;
 
-    Sleep(5000);
+    //Sleep(5000);
 
-    SendKeyboardLetter('D');
-    SendKeyboardLetter('E');
-    SendKeyboardLetter('F');
-    SendKeyboardLetter('_');
-    SendKeyboardLetter('P');
-    SendKeyboardLetter('A');
-    SendKeyboardLetter('S');
-    SendKeyboardLetter('S');
-    SendKeyboardLetter('W');
-    SendKeyboardLetter('O');
-    SendKeyboardLetter('R');
-    SendKeyboardLetter('D');
-    SendKeyboardLetter('_');
-    SendKeyboardLetter('0');
-    SendKeyboardLetter('2');
-    SendKeyboardLetter('1');
+    //SendKeyboardLetter('D');
+    //SendKeyboardLetter('E');
+    //SendKeyboardLetter('F');
+    //SendKeyboardLetter('_');
+    //SendKeyboardLetter('P');
+    //SendKeyboardLetter('A');
+    //SendKeyboardLetter('S');
+    //SendKeyboardLetter('S');
+    //SendKeyboardLetter('W');
+    //SendKeyboardLetter('O');
+    //SendKeyboardLetter('R');
+    //SendKeyboardLetter('D');
+    //SendKeyboardLetter('_');
+    //SendKeyboardLetter('0');
+    //SendKeyboardLetter('2');
+    //SendKeyboardLetter('1');
 
     //printf("Sending 'Win-D'\r\n");
     //INPUT inputs[4] = {};
@@ -945,7 +945,7 @@ int main()
     //  printf("SendInput failed: 0x%x\n", HRESULT_FROM_WIN32(GetLastError()));
     //}
 
-    return 0;
+    //return 0;
 
     // This structure will be used to create the keyboard
     // input event.
@@ -972,32 +972,34 @@ int main()
     //// Exit normally
     //return 0;
 
-    //static movingAverage_ts track1;
-    //track1.numSamples = 100;
-    //track1.newSample = 0;
+    static movingAverage_ts track1;
+    track1.numSamples = 1000;
+    track1.newSample = 0;
 
-    //static movingAverage_ts track2;
-    //track2.numSamples = 100;
-    //track2.newSample = 10000;
+    static movingAverage_ts track2;
+    track2.numSamples = 1000;
+    track2.newSample = -100000;
 
-    //for (int j = 0; j < track1.numSamples * 1001.5; j++)
-    //{
-    //  track1.newSample++;
-    //  track2.newSample++;
-    //  MovingAverage(&track1);
-    //  MovingAverage(&track2);
-    //  if (track1.index == 0)
-    //  {
-    //    track1.newSample = 0;
-    //    track2.newSample = 10000;
-    //  }
-    //}
+    for (int j = 0; j < track1.numSamples * 1000.1; j++)
+    {
+      //printf("track2.newSample[%d]: %d\n", j, track2.newSample);
+      MovingAverage(&track1);
+      MovingAverage(&track2);
 
-    //printf("track1 Avg: %d\n", track1.movingAvg);
-    //printf("track2 Avg: %d\n", track2.movingAvg);
-    //while (true) // do nothing when you're done with the code you're testing
-    //{
-    //}
+      track1.newSample++;
+      track2.newSample++;
+      if (track1.index == 0)
+      {
+        track1.newSample = 0;
+        track2.newSample = -100000;
+      }
+    }
+
+    printf("track1 Avg: %d\n", track1.movingAvg);
+    printf("track2 Avg: %d\n", track2.movingAvg);
+    while (true) // do nothing when you're done with the code you're testing
+    {
+    }
     //can_isobus_info testData = INFO_CSTM_ENG_3;
 
     //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0x3);
