@@ -940,7 +940,7 @@ int main()
     static uint8_t count = 0;
 
     static uint64_t loopPrevTime = millis();
-    uint64_t loopTimeout = 10000;
+    uint64_t loopTimeout = 5000;
 
     //Sleep(5000);
 
@@ -1005,18 +1005,18 @@ int main()
         fanCmdPercentSetpnt = 50;
       }
       uint8_t increOrDecrement = CMD_NO_CHANGE;
-      if (fanCmdPercentSetpnt > prevFanCmdPercent)
+      if (fanCmdPercentSetpnt > fanCmdPercent)
       {
         increOrDecrement = CMD_INCREMENT;
       }
-      else if (fanCmdPercentSetpnt < prevFanCmdPercent)
+      else if (fanCmdPercentSetpnt < fanCmdPercent)
       {
         increOrDecrement = CMD_DECREMENT;
       }
       //fanCmdPercent = fanCmdPercentSetpnt;
       IncrementValue(&fanCmdPercent, increOrDecrement, INCREMENT_VAL_1, 0, 100); // increment/decrement slowly (1%/loop, OR 100%/s)
       //outputs_s.FanCurrent_mA_u16 = scale(fanCmdPercent, 0, 100, parameters_s.FAN_current_mA_max, parameters_s.FAN_current_mA_min, TRUE); // have to inverse cmd for this fan circuit
-      prevFanCmdPercent = fanCmdPercent;
+      //prevFanCmdPercent = fanCmdPercent;
 
       printf("fanCmdPercent: %d\n", fanCmdPercent);
       i++;
