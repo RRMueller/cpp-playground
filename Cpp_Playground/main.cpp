@@ -856,6 +856,46 @@ void MovingAverage(movingAverage_ts* MA)
   MA->movingAvgSamplesSaved = MA->numSamples;
 }
 
+#define CMD_NO_CHANGE 0
+#define CMD_DECREMENT 1
+#define CMD_INCREMENT 2
+
+#define INCREMENT_VAL_1 1
+#define INCREMENT_VAL_5 5
+#define INCREMENT_VAL_20 20
+#define INCREMENT_VAL_50 50
+
+/**
+ * @brief Increments/Decrements a given value by a certain amount up or down given a tri-state bool
+ *      Also clips to a min/max value.
+ *
+ * @param[inout] value* pointer to value that will be incremented/decremented
+ * @param[in] increDecrement tri-state input, 1 = decrement, 2 = increment, anything else = don't change
+ * @param[in] incrementVal How much to increment/decrement
+ * @param[in] minRange minimum value to clip `value` to if decremented below
+ * @param[in] maxRange maximum value to clip `value` to if incremented above
+ */
+void IncrementValue(int16_t* value, uint8_t increDecrement, uint16_t incrementVal, int32_t minRange, int32_t maxRange)
+{
+  // sint32 output = input; // Set output to input so we don't send garbage if we don't change anything.
+  if (increDecrement == CMD_DECREMENT)
+  {
+    *value -= incrementVal;
+    if (*value < minRange) // clip value if outside maxRange
+    {
+      *value = minRange;
+    }
+  }
+  else if (increDecrement == CMD_INCREMENT)
+  {
+    *value += incrementVal;
+    if (*value > maxRange) // clip value if outside maxRange
+    {
+      *value = maxRange;
+    }
+  }
+}
+
 void SendKeyboardLetter(char input)
 {
   //printf("Sending 'Win-D'\r\n");
@@ -896,56 +936,13 @@ int main()
   for (;;)
   {
     static uint64_t prevPrintTime = millis();
-    uint64_t printTimeout = 100;
+    uint64_t printTimeout = 10;
     static uint8_t count = 0;
 
     static uint64_t loopPrevTime = millis();
-    uint64_t loopTimeout = 2000;
+    uint64_t loopTimeout = 10000;
 
     //Sleep(5000);
-
-    //SendKeyboardLetter('D');
-    //SendKeyboardLetter('E');
-    //SendKeyboardLetter('F');
-    //SendKeyboardLetter('_');
-    //SendKeyboardLetter('P');
-    //SendKeyboardLetter('A');
-    //SendKeyboardLetter('S');
-    //SendKeyboardLetter('S');
-    //SendKeyboardLetter('W');
-    //SendKeyboardLetter('O');
-    //SendKeyboardLetter('R');
-    //SendKeyboardLetter('D');
-    //SendKeyboardLetter('_');
-    //SendKeyboardLetter('0');
-    //SendKeyboardLetter('2');
-    //SendKeyboardLetter('1');
-
-    //printf("Sending 'Win-D'\r\n");
-    //INPUT inputs[4] = {};
-    //ZeroMemory(inputs, sizeof(inputs));
-
-    //inputs[0].type = INPUT_KEYBOARD;
-    //inputs[0].ki.wVk = VK_LWIN;
-
-    //inputs[1].type = INPUT_KEYBOARD;
-    //inputs[1].ki.wVk = 'D';
-
-    //inputs[2].type = INPUT_KEYBOARD;
-    //inputs[2].ki.wVk = 'D';
-    //inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-
-    //inputs[3].type = INPUT_KEYBOARD;
-    //inputs[3].ki.wVk = VK_LWIN;
-    //inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-
-    //UINT uSent = SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
-    //if (uSent != ARRAYSIZE(inputs))
-    //{
-    //  printf("SendInput failed: 0x%x\n", HRESULT_FROM_WIN32(GetLastError()));
-    //}
-
-    //return 0;
 
     // This structure will be used to create the keyboard
     // input event.
@@ -972,34 +969,61 @@ int main()
     //// Exit normally
     //return 0;
 
-    static movingAverage_ts track1;
-    track1.numSamples = 1000;
-    track1.newSample = 0;
+    //static movingAverage_ts track1;
+    //track1.numSamples = 1000;
+    //track1.newSample = 0;
 
-    static movingAverage_ts track2;
-    track2.numSamples = 1000;
-    track2.newSample = -100000;
+    //static movingAverage_ts track2;
+    //track2.numSamples = 1000;
+    //track2.newSample = -100000;
 
-    for (int j = 0; j < track1.numSamples * 1000.1; j++)
+    //for (int j = 0; j < track1.numSamples * 1000.1; j++)
+    //{
+    //  //printf("track2.newSample[%d]: %d\n", j, track2.newSample);
+    //  MovingAverage(&track1);
+    //  MovingAverage(&track2);
+
+    //  track1.newSample++;
+    //  track2.newSample++;
+    //  if (track1.index == 0)
+    //  {
+    //    track1.newSample = 0;
+    //    track2.newSample = -100000;
+    //  }
+    //}
+
+    //printf("track1 Avg: %d\n", track1.movingAvg);
+    //printf("track2 Avg: %d\n", track2.movingAvg);
+    static int i = 0;
+    if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
     {
-      //printf("track2.newSample[%d]: %d\n", j, track2.newSample);
-      MovingAverage(&track1);
-      MovingAverage(&track2);
-
-      track1.newSample++;
-      track2.newSample++;
-      if (track1.index == 0)
+      static int16_t fanCmdPercent = 0;
+      static int16_t prevFanCmdPercent = 0;
+      static int16_t fanCmdPercentSetpnt = 100;
+      if (i == 150)
       {
-        track1.newSample = 0;
-        track2.newSample = -100000;
+        fanCmdPercentSetpnt = 50;
       }
-    }
+      uint8_t increOrDecrement = CMD_NO_CHANGE;
+      if (fanCmdPercentSetpnt > prevFanCmdPercent)
+      {
+        increOrDecrement = CMD_INCREMENT;
+      }
+      else if (fanCmdPercentSetpnt < prevFanCmdPercent)
+      {
+        increOrDecrement = CMD_DECREMENT;
+      }
+      //fanCmdPercent = fanCmdPercentSetpnt;
+      IncrementValue(&fanCmdPercent, increOrDecrement, INCREMENT_VAL_1, 0, 100); // increment/decrement slowly (1%/loop, OR 100%/s)
+      //outputs_s.FanCurrent_mA_u16 = scale(fanCmdPercent, 0, 100, parameters_s.FAN_current_mA_max, parameters_s.FAN_current_mA_min, TRUE); // have to inverse cmd for this fan circuit
+      prevFanCmdPercent = fanCmdPercent;
 
-    printf("track1 Avg: %d\n", track1.movingAvg);
-    printf("track2 Avg: %d\n", track2.movingAvg);
-    while (true) // do nothing when you're done with the code you're testing
-    {
+      printf("fanCmdPercent: %d\n", fanCmdPercent);
+      i++;
     }
+    //while (true) // do nothing when you're done with the code you're testing
+    //{
+    //}
     //can_isobus_info testData = INFO_CSTM_ENG_3;
 
     //InsertValueToCanTelegram(&INFO_CSTM_ENG_3, CSTM_ENG_3_SPN_183, 0x3);
