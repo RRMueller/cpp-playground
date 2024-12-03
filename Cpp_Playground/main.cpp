@@ -994,6 +994,9 @@ int main()
 
     //printf("track1 Avg: %d\n", track1.movingAvg);
     //printf("track2 Avg: %d\n", track2.movingAvg);
+
+    double test = scale(3, 4, 4, 5, 6, false);
+    printf("test: %f\n", test);
     static int i = 0;
     if (timerMillis(&prevPrintTime, printTimeout, true, 0, false))
     {
